@@ -48,7 +48,35 @@ class ResponseWrapper(EWrapper):
     
     def historicalData(self, reqId, date, open, high, low, close, volume, 
         count, WAP, hasGaps): 
-        pass
+        try:
+            mtype = "tick"
+            d = datetime(*time.localtime(int(date))[:-3])
+            candle = d, open, high, low, close, volume
+            if d.second == 0:
+                message = {'type': mtype, 'id': reqId, 'date': 
+                           date - timedelta(seconds=57), 'value': open}
+                self.handler.handle_tick(message)
+                message = {'type': mtype, 'id': reqId, 'date': 
+                           date - timedelta(seconds=44), 'value': high}
+                self.handler.handle_tick(message)
+                message = {'type': mtype, 'id': reqId, 'date': 
+                           date - timedelta(seconds=28), 'value': low}
+                self.handler.handle_tick(message)
+                message = {'type': mtype, 'id': reqId, 'date': 
+                           date - timedelta(seconds=7), 'value': close}
+                self.handler.handle_tick(message)
+            else:
+                base_date = datetime(d.year, d.month, d.day, d.hour, d.minute)
+                delta = timedelta(seconds=d.second/5.0)
+                for i in range(1,5):
+                    base_date += delta
+                    message = {'type': mtype, 'id': reqId, 'date': base_date,
+                               'value': candle[i]}
+                    self.handler.handle_tick(message)
+        except ValueError:
+            # send last historical candle message
+            message = {'type': "tick_hist_last", 'id': reqId}
+            self.handler.handle_tick(message)
     
     def error(self, *args):
         if args and len(args) == 3: 
@@ -144,7 +172,7 @@ class TWSEngine(stomp.ConnectionListener):
             method(message)
         
     def handle_tick(self, tick):
-        queue = '/queue/ticks' # to be: /queue/ticks/id, e.g. /queue/ticks/1
+        queue = '/queue/ticks/%s' % tick['id']  # to be: /queue/ticks/id, e.g. /queue/ticks/1
         self.handle_outgoing(tick, queue)
         
     def handle_error(self, *args):
@@ -184,6 +212,16 @@ class TWSEngine(stomp.ConnectionListener):
         order_id = message['order_id']
         self.cancel_order(order_id)
         
+    def process_historical_data_request(self, message):
+        ticker_id = message['ticker_id']
+        message_contract = message['contract']
+        self.historical_data_request(ticker_id, message_contract)
+        
+    def process_tick_request(self, message):
+        ticker_id = message['ticker_id']
+        message_contract = message['contract']
+        self.tick_request(ticker_id, message_contract)
+        
     def create_contract(self, c):
         contract = Contract()
         contract.m_symbol = c['symbol']
@@ -210,14 +248,18 @@ class TWSEngine(stomp.ConnectionListener):
     def cancel_order(self, order_id):
         self.connection.cancelOrder(order_id)
         
-    def historical_data(self, ticker_id, ticker, duration="2 D", 
-                        bar_size="1 min"):
-        contract = self.__create_contract(ticker)
+    def historical_data_request(self, ticker_id, ticker_contract, 
+            duration="2 D", bar_size="1 min"):
+        contract = self.create_contract(ticker_contract)
         now = datetime.now()
         enddate = now + timedelta(hours=1)
         enddatestr = enddate.strftime("%Y%m%d %H:%M:%S")
         self.connection.reqHistoricalData(ticker_id, contract, enddatestr, 
             duration, bar_size, "TRADES", 0, 2)
+        
+    def tick_request(self, ticker_id, ticker_contract):
+        contract = self.create_contract(ticker_contract)
+        self.connection.reqMktData(ticker_id, contract, None)
 
     def historical_data_handler(self, id, candles):
         print "Processing historical ticks for ticker %s." % id

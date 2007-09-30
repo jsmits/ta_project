@@ -13,7 +13,6 @@ class TAEngine(stomp.ConnectionListener):
         self.orders = {}
         self.order_map = {}
         self.next_id = None
-        self.trading = False
         
     def start(self):
         # initialize the tickers, account, portfolio, etc.
@@ -50,10 +49,11 @@ class TAEngine(stomp.ConnectionListener):
     # stomp connection listener methods
     def on_connected(self, headers, body):
         self.__print_message("CONNECTED", headers, body)
-        self.mgw.subscribe('/queue/ticks') # use the ticker specific tick queue
-        # like /queue/ticks/1
         self.mgw.subscribe('/topic/account')
         # request (historical) tick data
+        for ticker_id, ticker in self.tickers:
+            self.mgw.subscribe('/queue/ticks/%s' % ticker_id) # use the ticker specific tick queue
+            self.historical_data_request(ticker_id, ticker)
 
     def on_message(self, headers, body):
         self.__print_message("MESSAGE", headers, body)
@@ -68,7 +68,14 @@ class TAEngine(stomp.ConnectionListener):
         ticker_id = tick['id']
         ticker = self.tickers.get(ticker_id)
         ticker.ticks.append((tick['date'], tick['value']))
-        if self.trading: self.analyze_tick(tick)
+        if getattr(ticker, 'tradable', False): 
+            self.analyze_tick(tick)
+        
+    def process_tick_hist_last(self, message):
+        ticker_id = message['id']
+        ticker = self.tickers.get(ticker_id)
+        ticker.tradable = True
+        self.tick_request(ticker_id, ticker)
     
     def process_next_valid_id(self, message):
         self.next_id = message.get('value')
@@ -196,6 +203,18 @@ class TAEngine(stomp.ConnectionListener):
         order_entry['status'] = 'PendingCancel'
         order_entry['time'] = datetime.now()
         request = {'type': 'cancel_order', 'order_id': order_id}
+        self.handle_outgoing(request)
+        
+    def historical_data_request(self, ticker_id, ticker):
+        contract = self.create_contract(ticker)
+        request = {'type': 'historical_data_request', 'ticker_id': ticker_id,
+            'contract': contract}
+        self.handle_outgoing(request)
+        
+    def tick_request(self, ticker_id, ticker):
+        contract = self.create_contract(ticker)
+        request = {'type': 'tick_request', 'ticker_id': ticker_id,
+            'contract': contract}
         self.handle_outgoing(request)
         
         
