@@ -64,9 +64,10 @@ class TAEngine(stomp.ConnectionListener):
         # self.__print_message("MESSAGE", headers, body)
         try:
             message = message_decode(body)
-            self.handle_incoming(message)
         except:
             print "unable to decode message body: %s" % body
+        else:
+            self.handle_incoming(message)
     
     # incoming message processing      
     def process_tick(self, tick):

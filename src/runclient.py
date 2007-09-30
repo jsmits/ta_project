@@ -1,3 +1,5 @@
+from strategies import strategy_1
+
 if __name__ == '__main__':
     
     import stomp
@@ -11,7 +13,7 @@ if __name__ == '__main__':
         'expiry': "200712",
         'exchange': "GLOBEX",
         'currency': "USD",
-        'strategy': None 
+        'strategy': strategy_1 
         }
     ]
     
