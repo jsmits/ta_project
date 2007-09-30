@@ -44,7 +44,7 @@ class ResponseWrapper(EWrapper):
             'market_price': marketPrice, 'market_value': marketValue,
             'average_cost': averageCost, 'unrealizedPNL': unrealizedPNL,
             'realizedPNL': realizedPNL}
-        self.handler.handle_messagequi(message)
+        self.handler.handle_message(message)
     
     def historicalData(self, reqId, date, open, high, low, close, volume, 
         count, WAP, hasGaps): 
@@ -130,13 +130,18 @@ class TWSEngine(stomp.ConnectionListener):
         print "disconnecting IB gateway..."
         self.connection.eDisconnect()
         
-    def handle_incoming(self, message):
-        print "handling message: %s" % message
-        
     # message handler methods
     def handle_outgoing(self, obj, queue='/topic/account'):
         message = message_encode(obj)
         self.mgw.send(queue, message)
+        
+    def handle_incoming(self, message):
+        mtype = message['type']
+        method = getattr(self, "process_%s" % mtype, None)
+        if not method: 
+            print "no processor found for message type: %s" % mtype
+        else:
+            method(message)
         
     def handle_tick(self, tick):
         queue = '/queue/ticks' # to be: /queue/ticks/id, e.g. /queue/ticks/1
@@ -165,65 +170,44 @@ class TWSEngine(stomp.ConnectionListener):
             self.handle_incoming(message)
         except:
             print "unable to decode message body: %s" % body
+            
+    # incoming message processing      
+    def process_place_order(self, message): 
+        message_contract = message['contract']
+        message_order = message['order']
+        order_id = message_order['order_id']
+        contract = self.create_contract(message_contract)
+        order = self.create_order(message_order)
+        self.place_order(order_id, contract, order)
         
-    def __create_contract(self, ticker):
+    def process_cancel_order(self, message): 
+        order_id = message['order_id']
+        self.cancel_order(order_id)
+        
+    def create_contract(self, c):
         contract = Contract()
-        contract.m_symbol = ticker.symbol
-        contract.m_secType = ticker.secType
-        contract.m_expiry = getattr(ticker, 'expiry', None)
-        contract.m_exchange = ticker.exchange
-        contract.m_currency = ticker.currency
-        return contract
+        contract.m_symbol = c['symbol']
+        contract.m_secType = c['secType']
+        contract.m_expiry = c['expiry']
+        contract.m_exchange = c['exchange']
+        contract.m_currency = c['currency']
+        return contract    
     
-    def __create_order(self, order_id, ticker, action):
-        # action can be 'BUY', 'SELL' for futures
+    def create_order(self, o):
         order = Order()
-        order.m_orderId = order_id
+        order.m_orderId = o['order_id']
         order.m_clientId = self.client_id
-        order.m_action = action
-        order.m_totalQuantity = getattr(ticker, 'quantity', 1)
+        order.m_action = o['action']
+        order.m_totalQuantity = o['quantity']
         order.m_orderType = 'MKT' # guaranteed execution
         order.m_lmtPrice = 0
         order.m_auxPrice = 0
         return order
-    
-    def handle_signal(self, trigger_tick, signal):
-        if not signal: return
-        # this is for futures
-        if   signal.startswith('entry_long'):  action = 'BUY'
-        elif signal.startswith('exit_long'):   action = 'SELL'
-        elif signal.startswith('entry_short'): action = 'SELL'
-        elif signal.startswith('exit_short'):  action = 'BUY'
-        else:
-            print "error :: unknown signal: %s." % signal
-            return
-        if self.trading:
-            self.place_order(trigger_tick, signal, action)
         
-    def place_order(self, trigger_tick, signal, action):
-        ticker_id = trigger_tick[0]
-        ticker = self.tickers.get(ticker_id)
-        trigger_time = trigger_tick[1]
-        trigger_value = trigger_tick[2]
-        order_id = self.__next_id()
-        contract = self.__create_contract(ticker)
-        order = self.__create_order(order_id, ticker, action)
-        order_entry = {'trigger_time': trigger_time,
-                       'trigger_value': trigger_value,
-                       'signal': signal,
-                       'order': order,
-                       'status': 'PendingSubmit'}
-        self.account['_orders'][order_id] = order_entry
-        orders = self.order_map.get(ticker_id, [])
-        orders.append(order_id)
-        self.order_map[ticker_id] = orders
+    def place_order(self, order_id, contract, order):
         self.connection.placeOrder(order_id, contract, order)
-        order_entry.update({'order_time': datetime.now()})
         
     def cancel_order(self, order_id):
-        order_entry = self.account['_orders'][order_id]
-        order_entry['status'] = 'PendingCancel'
-        order_entry['time'] = datetime.now()
         self.connection.cancelOrder(order_id)
         
     def historical_data(self, ticker_id, ticker, duration="2 D", 
