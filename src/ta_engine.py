@@ -5,7 +5,7 @@ from utils import message_encode, message_decode
 
 class TAEngine(stomp.ConnectionListener):
     """handle the trading related requests"""
-    def __init__(self, tickers={}):
+    def __init__(self, tickers):
         self.mgw = None
         self.tickers = tickers
         self.account = {}
@@ -17,14 +17,18 @@ class TAEngine(stomp.ConnectionListener):
     def start(self):
         # initialize the tickers, account, portfolio, etc.
         self.mgw.start() # start the messaging gateway
-        return True
         
     def exit(self):
+        self.mgw.unsubscribe('/topic/account')
+        for ticker_id in self.tickers.keys():
+            self.cancel_market_data(ticker_id)
+            self.mgw.unsubscribe('/queue/ticks/%s' % ticker_id)
         self.mgw.disconnect()
     
     # message handler methods
     def handle_outgoing(self, obj, topic_or_queue='/queue/request'):
         message = message_encode(obj)
+        print "handle_outgoing, obj: %s, tq: %s" % (obj, topic_or_queue)
         self.mgw.send(topic_or_queue, message)
         
     def handle_error(self, *args):
@@ -51,12 +55,13 @@ class TAEngine(stomp.ConnectionListener):
         self.__print_message("CONNECTED", headers, body)
         self.mgw.subscribe('/topic/account')
         # request (historical) tick data
-        for ticker_id, ticker in self.tickers:
+        for ticker_id, ticker in self.tickers.items():
             self.mgw.subscribe('/queue/ticks/%s' % ticker_id)
             self.historical_data_request(ticker_id, ticker)
 
     def on_message(self, headers, body):
-        self.__print_message("MESSAGE", headers, body)
+        # TODO: log this messages
+        # self.__print_message("MESSAGE", headers, body)
         try:
             message = message_decode(body)
             self.handle_incoming(message)
@@ -65,6 +70,7 @@ class TAEngine(stomp.ConnectionListener):
     
     # incoming message processing      
     def process_tick(self, tick):
+        print "tick: %s" % tick
         ticker_id = tick['id']
         ticker = self.tickers.get(ticker_id)
         ticker.ticks.append((tick['date'], tick['value']))
@@ -95,6 +101,7 @@ class TAEngine(stomp.ConnectionListener):
         order.update(message)
     
     def process_account_value(self, message):
+        print "process_account_value, message: %s" % message
         key = message['key']
         value = message['value']
         currency = message['currency']
@@ -215,6 +222,10 @@ class TAEngine(stomp.ConnectionListener):
         contract = self.create_contract(ticker)
         request = {'type': 'tick_request', 'ticker_id': ticker_id,
             'contract': contract}
+        self.handle_outgoing(request)
+        
+    def cancel_market_data(self, ticker_id):
+        request = {'type': 'cancel_market_data', 'ticker_id': ticker_id}
         self.handle_outgoing(request)
         
         

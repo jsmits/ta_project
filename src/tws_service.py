@@ -13,7 +13,7 @@ class ResponseWrapper(EWrapper):
     def nextValidId(self, orderId):
         """this method is only called once upon connection"""
         message = {'type': "next_valid_id", 'value': orderId}
-        self.handler.handle_message(message)
+        self.handler.handle_outgoing(message)
 
     def tickPrice(self, tickerId, field, price, canAutoExecute):
         time = datetime.now()
@@ -28,14 +28,16 @@ class ResponseWrapper(EWrapper):
         message = {'type': 'order_status', 'order_id': orderId, 'time': time, 
             'status': status, 'filled': filled, 'remaining': remaining,
             'avg_fill_price': avgFillPrice, 'last_fill_price': lastFillPrice}
-        self.handler.handle_message(message)
+        self.handler.handle_outgoing(message)
     
     def updateAccountValue(self, key, value, currency, accountName):
-        try: value = float(value)
-        except ValueError: pass
+        try: 
+            value = float(value)
+        except ValueError, info: 
+            pass
         message = {'type': 'account_value', 'key': key, 'value': value,
                    'currency': currency}
-        self.handler.handle_message(message)
+        self.handler.handle_outgoing(message)
             
     def updatePortfolio(self, contract, position, marketPrice, marketValue, 
         averageCost, unrealizedPNL, realizedPNL, accountName): 
@@ -44,7 +46,7 @@ class ResponseWrapper(EWrapper):
             'market_price': marketPrice, 'market_value': marketValue,
             'average_cost': averageCost, 'unrealizedPNL': unrealizedPNL,
             'realizedPNL': realizedPNL}
-        self.handler.handle_message(message)
+        self.handler.handle_outgoing(message)
     
     def historicalData(self, reqId, date, open, high, low, close, volume, 
         count, WAP, hasGaps): 
@@ -54,16 +56,16 @@ class ResponseWrapper(EWrapper):
             candle = d, open, high, low, close, volume
             if d.second == 0:
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           date - timedelta(seconds=57), 'value': open}
+                           d - timedelta(seconds=57), 'value': open}
                 self.handler.handle_tick(message)
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           date - timedelta(seconds=44), 'value': high}
+                           d - timedelta(seconds=44), 'value': high}
                 self.handler.handle_tick(message)
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           date - timedelta(seconds=28), 'value': low}
+                           d - timedelta(seconds=28), 'value': low}
                 self.handler.handle_tick(message)
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           date - timedelta(seconds=7), 'value': close}
+                           d - timedelta(seconds=7), 'value': close}
                 self.handler.handle_tick(message)
             else:
                 base_date = datetime(d.year, d.month, d.day, d.hour, d.minute)
@@ -127,27 +129,12 @@ class TWSEngine(stomp.ConnectionListener):
         self.response_wrapper.handler = self
         
     def start(self):
-        # connect and request the account, order, and portfolio updates
-        self.connect()
-        tries = 10
-        while not self.connection.connected:
-            time.sleep(5)
-            if not self.connection.connected:
-                if tries == 0:
-                    print "trading gateway connection failed"
-                    return False
-                print "tws connection trying again..."
-                self.connect()
-                tries -= 1
-            else:
-                break
-        self.connection.reqAccountUpdates(True, "")
-        self.connection.reqOpenOrders()
+        # first start the messaging gateway
         self.mgw.start() # start the messaging gateway
-        return True
         
     def exit(self):
         if self.connection.connected: self.disconnect()
+        self.mgw.unsubscribe('/queue/request')
         self.mgw.disconnect()
     
     def connect(self):
@@ -190,6 +177,22 @@ class TWSEngine(stomp.ConnectionListener):
     def on_connected(self, headers, body):
         self.__print_message("CONNECTED", headers, body)
         self.mgw.subscribe('/queue/request')
+        # connect and request the account, order, and portfolio updates
+        self.connect()
+        tries = 10
+        while not self.connection.connected:
+            time.sleep(5)
+            if not self.connection.connected:
+                if tries == 0:
+                    print "trading gateway connection failed"
+                    return
+                print "tws connection trying again..."
+                self.connect()
+                tries -= 1
+            else:
+                break
+        self.connection.reqAccountUpdates(True, "")
+        self.connection.reqOpenOrders()
 
     def on_message(self, headers, body):
         self.__print_message("MESSAGE", headers, body)
@@ -221,6 +224,10 @@ class TWSEngine(stomp.ConnectionListener):
         ticker_id = message['ticker_id']
         message_contract = message['contract']
         self.tick_request(ticker_id, message_contract)
+        
+    def process_cancel_market_data(self, message):
+        ticker_id = message['ticker_id']
+        self.cancel_market_data(ticker_id)
         
     def create_contract(self, c):
         contract = Contract()
@@ -260,6 +267,10 @@ class TWSEngine(stomp.ConnectionListener):
     def tick_request(self, ticker_id, ticker_contract):
         contract = self.create_contract(ticker_contract)
         self.connection.reqMktData(ticker_id, contract, None)
+        
+    def cancel_market_data(self, ticker_id):
+        # cancel market Data
+        self.connection.cancelMktData(ticker_id)
 
     def historical_data_handler(self, id, candles):
         print "Processing historical ticks for ticker %s." % id
