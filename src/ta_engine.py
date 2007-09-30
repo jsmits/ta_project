@@ -52,7 +52,7 @@ class TAEngine(stomp.ConnectionListener):
         self.mgw.subscribe('/topic/account')
         # request (historical) tick data
         for ticker_id, ticker in self.tickers:
-            self.mgw.subscribe('/queue/ticks/%s' % ticker_id) # use the ticker specific tick queue
+            self.mgw.subscribe('/queue/ticks/%s' % ticker_id)
             self.historical_data_request(ticker_id, ticker)
 
     def on_message(self, headers, body):

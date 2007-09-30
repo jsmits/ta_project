@@ -172,7 +172,7 @@ class TWSEngine(stomp.ConnectionListener):
             method(message)
         
     def handle_tick(self, tick):
-        queue = '/queue/ticks/%s' % tick['id']  # to be: /queue/ticks/id, e.g. /queue/ticks/1
+        queue = '/queue/ticks/%s' % tick['id']
         self.handle_outgoing(tick, queue)
         
     def handle_error(self, *args):
