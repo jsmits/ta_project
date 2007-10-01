@@ -1,3 +1,4 @@
+import logger # configure the loggers
 from strategies import strategy_1
 
 if __name__ == '__main__':

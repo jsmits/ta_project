@@ -5,6 +5,9 @@ import sys
 from utils import message_encode, message_decode
 from com.ib.client import EWrapper, EClientSocket, Contract, Order
 
+import logging
+log = logging.getLogger("server")
+
 class ResponseWrapper(EWrapper):
     """custom wrapper implementation"""
     def __init__(self): 
@@ -82,18 +85,16 @@ class ResponseWrapper(EWrapper):
     
     def error(self, *args):
         if args and len(args) == 3: 
-            args = list(args)
-            args.insert(0, datetime.now())
-            print "%s, error :: id: %s, code: %s, message: %s" % tuple(args)
+            log.info("id: %s, code: %s, message: %s" % args)
         elif args and len(args) == 1:
-            print "%s, exception :: %s" % (datetime.now(), args)
+            log.error(args)
         elif args:
             print args
         else:
-            print "%s, error method called without arguments" % str(datetime.now())
+            log.error("error method called without arguments")
 
     def connectionClosed(self): 
-        print "connection closed at %s" % str(datetime.now())
+        log.info("connection closed")
     
     # not implemented methods
     def openOrder(self, orderId, contract, order): pass    
@@ -138,11 +139,11 @@ class TWSEngine(stomp.ConnectionListener):
         self.mgw.disconnect()
     
     def connect(self):
-        print "connecting to IB gateway..."
+        log.info("connecting to TWS...")
         self.connection.eConnect(self.host, self.port, self.client_id)
         
     def disconnect(self):
-        print "disconnecting IB gateway..."
+        log.info("disconnecting IB gateway...")
         self.connection.eDisconnect()
         
     # message handler methods
@@ -154,7 +155,7 @@ class TWSEngine(stomp.ConnectionListener):
         mtype = message['type']
         method = getattr(self, "process_%s" % mtype, None)
         if not method: 
-            print "no processor found for message type: %s" % mtype
+            log.error("no processor found for message type: %s" % mtype)
         else:
             method(message)
         
@@ -164,18 +165,9 @@ class TWSEngine(stomp.ConnectionListener):
         
     def handle_error(self, *args):
         pass
-    
-    def __print_message(self, frame_type, headers, body):
-        print "\r"
-        print frame_type
-        for header_key in headers.keys():
-            print '%s: %s' % (header_key, headers[header_key])
-        print
-        print body
-        
+
     # stomp connection listener methods
     def on_connected(self, headers, body):
-        self.__print_message("CONNECTED", headers, body)
         self.mgw.subscribe('/queue/request')
         # connect and request the account, order, and portfolio updates
         self.connect()
@@ -184,23 +176,24 @@ class TWSEngine(stomp.ConnectionListener):
             time.sleep(5)
             if not self.connection.connected:
                 if tries == 0:
-                    print "trading gateway connection failed"
+                    log.error("trading gateway connection failed")
                     return
-                print "tws connection trying again..."
+                log.error("tws connection trying again...")
                 self.connect()
                 tries -= 1
             else:
                 break
+        log.info("connection to TWS established")
         self.connection.reqAccountUpdates(True, "")
         self.connection.reqOpenOrders()
 
     def on_message(self, headers, body):
-        self.__print_message("MESSAGE", headers, body)
         try:
             message = message_decode(body)
-            self.handle_incoming(message)
         except:
-            print "unable to decode message body: %s" % body
+            log.error("unable to decode message body: %s" % body)
+        else:
+            self.handle_incoming(message)
             
     # incoming message processing      
     def process_place_order(self, message): 
@@ -272,31 +265,4 @@ class TWSEngine(stomp.ConnectionListener):
         # cancel market Data
         self.connection.cancelMktData(ticker_id)
 
-    def historical_data_handler(self, id, candles):
-        print "Processing historical ticks for ticker %s." % id
-        ticker = self.tickers.get(id)
-        contract = self.__create_contract(ticker)
-        self.connection.reqMktData(id, contract, None)
-        for candle in candles:
-            try:
-                date_int = int(candle[0])
-            except ValueError:
-                continue
-            else:
-                localtime = time.localtime(date_int)
-                date = datetime(*localtime[:-3])
-                o, h, l, c = candle[1:5]
-                if date.second == 0:
-                    ticker.ticks.append((date - timedelta(seconds=57), o))
-                    ticker.ticks.append((date - timedelta(seconds=44), h))
-                    ticker.ticks.append((date - timedelta(seconds=28), l))
-                    ticker.ticks.append((date - timedelta(seconds= 7), c))
-                else:
-                    base_date = datetime(date.year, date.month, date.day, 
-                                         date.hour, date.minute)
-                    delta = timedelta(seconds=date.second/5.0)
-                    for i in range(1,5):
-                        base_date += delta
-                        ticker.ticks.append((base_date, candle[i]))
-        self.requested_ticks.remove(id)
 

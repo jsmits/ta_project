@@ -1,7 +1,12 @@
 from datetime import datetime
+import logging
 
 import stomp
 from utils import message_encode, message_decode
+
+log = logging.getLogger("client")
+
+class NoValidOrderIdException(Exception): pass
 
 class TAEngine(stomp.ConnectionListener):
     """handle the trading related requests"""
@@ -28,44 +33,35 @@ class TAEngine(stomp.ConnectionListener):
     # message handler methods
     def handle_outgoing(self, obj, topic_or_queue='/queue/request'):
         message = message_encode(obj)
-        print "handle_outgoing, obj: %s, tq: %s" % (obj, topic_or_queue)
+        log.debug('handle_outgoing: obj: %r, topic or queue: "%s", message: "%s"' % (obj, topic_or_queue, message))
         self.mgw.send(topic_or_queue, message)
         
     def handle_error(self, *args):
         pass
     
     def handle_incoming(self, message):
+        log.debug("handle_incoming, message: %r" % message)
         mtype = message['type']
         method = getattr(self, "process_%s" % mtype, None)
         if not method: 
-            print "no processor found for message type: %s" % mtype
+            log.error("no processor found for message type: %s" % mtype)
         else:
             method(message)
-    
-    def __print_message(self, frame_type, headers, body):
-        print "\r"
-        print frame_type
-        for header_key in headers.keys():
-            print '%s: %s' % (header_key, headers[header_key])
-        print
-        print body
         
     # stomp connection listener methods
     def on_connected(self, headers, body):
-        self.__print_message("CONNECTED", headers, body)
         self.mgw.subscribe('/topic/account')
         # request (historical) tick data
         for ticker_id, ticker in self.tickers.items():
             self.mgw.subscribe('/queue/ticks/%s' % ticker_id)
+            log.info("requesting historical ticks for ticker id: %s" % ticker_id)
             self.historical_data_request(ticker_id, ticker)
 
     def on_message(self, headers, body):
-        # TODO: log this messages
-        # self.__print_message("MESSAGE", headers, body)
         try:
             message = message_decode(body)
         except:
-            print "unable to decode message body: %s" % body
+            log.error("unable to decode message body: %s" % body)
         else:
             self.handle_incoming(message)
     
@@ -78,12 +74,13 @@ class TAEngine(stomp.ConnectionListener):
             try:
                 self.analyze_tick(tick)
             except Exception, e:
-                print "--exception--: %s" % e
+                log.error("exception in analyze tick, info: %s" % e)
         
     def process_tick_hist_last(self, message):
         ticker_id = message['id']
         ticker = self.tickers.get(ticker_id)
         ticker.tradable = True
+        log.info("subscribing to tick stream for ticker id: %s" % ticker_id)
         self.tick_request(ticker_id, ticker)
     
     def process_next_valid_id(self, message):
@@ -91,11 +88,13 @@ class TAEngine(stomp.ConnectionListener):
         
     def get_next_valid_id(self):
         order_id = self.next_id
-        self.increment_next_id(order_id)
+        if not order_id: 
+            raise NoValidOrderIdException()
+        self.publish_next_id(order_id+1)
         return order_id
         
-    def increment_next_id(self, order_id):
-        obj = {'type': "next_valid_id", 'value': order_id+1}
+    def publish_next_id(self, order_id):
+        obj = {'type': "next_valid_id", 'value': order_id}
         self.handle_outgoing(obj, '/topic/account')
         
     def process_order_status(self, message):
@@ -169,10 +168,14 @@ class TAEngine(stomp.ConnectionListener):
         elif signal.startswith('entry_short'): action = 'SELL'
         elif signal.startswith('exit_short'):  action = 'BUY'
         else:
-            print "error :: unknown signal: %s" % signal
+            log.error('unknown signal: "%s"' % signal)
             return
-        print "handle signal: %s" % signal
-        order_request = self.create_order_request(trigger_tick, signal, action)
+        try:
+            order_request = self.create_order_request(trigger_tick, signal, action)
+        except NoValidOrderIdException:
+            log.error("no valid order id, stop server and client, start client, "\
+                "and then start server")
+            return
         self.handle_outgoing(order_request)
         
     def create_order_request(self, trigger_tick, signal, action):
