@@ -7,7 +7,7 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 
-fh = logging.handlers.RotatingFileHandler('../log/ta.log', 'a', 10 * 1024 * 1024, 10)
+fh = logging.handlers.RotatingFileHandler('../log/ta.log', 'a', 100 * 1024 * 1024, 10)
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 
