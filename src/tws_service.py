@@ -95,7 +95,7 @@ class ResponseWrapper(EWrapper):
             log.error("error method called without arguments")
 
     def connectionClosed(self): 
-        log.info("connection closed")
+        log.info("TWS connection closed")
     
     # not implemented methods
     def openOrder(self, orderId, contract, order): pass    
