@@ -147,11 +147,13 @@ class TWSEngine(stomp.ConnectionListener):
         self.connection.eDisconnect()
         
     # message handler methods
-    def handle_outgoing(self, obj, queue='/topic/account'):
+    def handle_outgoing(self, obj, topic_or_queue='/topic/account'):
         message = message_encode(obj)
-        self.mgw.send(queue, message)
+        log.debug("handle_outgoing: obj: %r, topic or queue: '%s', message: %r" % (obj, topic_or_queue, message))
+        self.mgw.send(topic_or_queue, message)
         
     def handle_incoming(self, message):
+        log.debug("handle_incoming, message: %r" % message)
         mtype = message['type']
         method = getattr(self, "process_%s" % mtype, None)
         if not method: 

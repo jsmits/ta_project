@@ -33,7 +33,7 @@ class TAEngine(stomp.ConnectionListener):
     # message handler methods
     def handle_outgoing(self, obj, topic_or_queue='/queue/request'):
         message = message_encode(obj)
-        log.debug('handle_outgoing: obj: %r, topic or queue: "%s", message: "%s"' % (obj, topic_or_queue, message))
+        log.debug("handle_outgoing: obj: %r, topic or queue: '%s', message: %r" % (obj, topic_or_queue, message))
         self.mgw.send(topic_or_queue, message)
         
     def handle_error(self, *args):

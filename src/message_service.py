@@ -65,7 +65,7 @@ class MessagingGateway(stomp.ConnectionListener):
         
     def send(self, destination, message):
         self.mconn.send(destination=destination, message=message)
-        log.debug('send to destination "%s" message: %s' % (destination, message))
+        log.debug('send to destination "%s" message: "%s"' % (destination, message))
         
     def sendtrans(self, destination, message, transid):
         self.mconn.send(destination=destination, message=message, 
