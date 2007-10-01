@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 import time
-import stomp
 import sys
+import logging
+
+import stomp
 from utils import message_encode, message_decode
 from com.ib.client import EWrapper, EClientSocket, Contract, Order
 
-import logging
 log = logging.getLogger("server")
 
 class ResponseWrapper(EWrapper):

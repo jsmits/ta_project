@@ -20,7 +20,6 @@ class TAEngine(stomp.ConnectionListener):
         self.next_id = None
         
     def start(self):
-        # initialize the tickers, account, portfolio, etc.
         self.mgw.start() # start the messaging gateway
         
     def exit(self):
@@ -30,26 +29,9 @@ class TAEngine(stomp.ConnectionListener):
             self.mgw.unsubscribe('/queue/ticks/%s' % ticker_id)
         self.mgw.disconnect()
     
-    # message handler methods
-    def handle_outgoing(self, obj, topic_or_queue='/queue/request'):
-        message = message_encode(obj)
-        log.debug("handle_outgoing: obj: %r, topic or queue: '%s', message: %r" % (obj, topic_or_queue, message))
-        self.mgw.send(topic_or_queue, message)
-        
-    def handle_error(self, *args):
-        pass
-    
-    def handle_incoming(self, message):
-        log.debug("handle_incoming, message: %r" % message)
-        mtype = message['type']
-        method = getattr(self, "process_%s" % mtype, None)
-        if not method: 
-            log.error("no processor found for message type: %s" % mtype)
-        else:
-            method(message)
-        
     # stomp connection listener methods
     def on_connected(self, headers, body):
+        # initialize the tickers, account, portfolio, etc.
         self.mgw.subscribe('/topic/account')
         # request (historical) tick data
         for ticker_id, ticker in self.tickers.items():
@@ -64,8 +46,23 @@ class TAEngine(stomp.ConnectionListener):
             log.error("unable to decode message body: %s" % body)
         else:
             self.handle_incoming(message)
+            
+    # message handler methods
+    def handle_outgoing(self, obj, topic_or_queue='/queue/request'):
+        message = message_encode(obj)
+        log.debug("handle_outgoing: obj: %r, topic or queue: '%s', message: %r" % (obj, topic_or_queue, message))
+        self.mgw.send(topic_or_queue, message)
+        
+    def handle_incoming(self, message):
+        log.debug("handle_incoming, message: %r" % message)
+        mtype = message['type']
+        method = getattr(self, "process_%s" % mtype, None)
+        if not method: 
+            log.error("no processor found for message type: %s" % mtype)
+        else:
+            method(message)
     
-    # incoming message processing      
+    # incoming message processors  
     def process_tick(self, tick):
         ticker_id = tick['id']
         ticker = self.tickers.get(ticker_id)
@@ -85,17 +82,6 @@ class TAEngine(stomp.ConnectionListener):
     
     def process_next_valid_id(self, message):
         self.next_id = message.get('value')
-        
-    def get_next_valid_id(self):
-        order_id = self.next_id
-        if not order_id: 
-            raise NoValidOrderIdException()
-        self.publish_next_id(order_id+1)
-        return order_id
-        
-    def publish_next_id(self, order_id):
-        obj = {'type': "next_valid_id", 'value': order_id}
-        self.handle_outgoing(obj, '/topic/account')
         
     def process_order_status(self, message):
         order = self.orders.get(message['order_id'], None)
@@ -159,7 +145,7 @@ class TAEngine(stomp.ConnectionListener):
             last_order_id = order_ids[-1]
             order_entry = self.orders[last_order_id]
             return order_entry
-        
+    
     def handle_signal(self, trigger_tick, signal):
         if not signal: return
         # this is for futures
@@ -170,14 +156,20 @@ class TAEngine(stomp.ConnectionListener):
         else:
             log.error('unknown signal: "%s"' % signal)
             return
-        try:
-            order_request = self.create_order_request(trigger_tick, signal, action)
-        except NoValidOrderIdException:
-            log.error("no valid order id, stop server and client, start client, "\
-                "and then start server")
-            return
-        self.handle_outgoing(order_request)
+        self.order_request(trigger_tick, signal, action)
+    
+    # order utility methods
+    def get_next_valid_id(self):
+        order_id = self.next_id
+        if not order_id: 
+            raise NoValidOrderIdException()
+        self.publish_next_id(order_id+1)
+        return order_id
         
+    def publish_next_id(self, order_id):
+        obj = {'type': "next_valid_id", 'value': order_id}
+        self.handle_outgoing(obj, '/topic/account')
+    
     def create_order_request(self, trigger_tick, signal, action):
         ticker_id = trigger_tick['id']
         ticker = self.tickers.get(ticker_id)
@@ -211,6 +203,16 @@ class TAEngine(stomp.ConnectionListener):
         order['quantity'] = getattr(ticker, 'quantity', 1)
         return order
     
+    # request methods
+    def order_request(self, trigger_tick, signal, action):
+        try:
+            order_request = self.create_order_request(trigger_tick, signal, action)
+        except NoValidOrderIdException:
+            log.error("no valid order id, stop server and client, start client, "\
+                "and then start server")
+            return
+        self.handle_outgoing(order_request)
+    
     def cancel_order(self, order_id):
         order_entry = self.orders[order_id]
         order_entry['status'] = 'PendingCancel'
@@ -233,6 +235,4 @@ class TAEngine(stomp.ConnectionListener):
     def cancel_market_data(self, ticker_id):
         request = {'type': 'cancel_market_data', 'ticker_id': ticker_id}
         self.handle_outgoing(request)
-        
-        
         
