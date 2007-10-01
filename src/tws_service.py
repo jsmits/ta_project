@@ -131,7 +131,6 @@ class TWSEngine(stomp.ConnectionListener):
         self.response_wrapper.handler = self
         
     def start(self):
-        # first start the messaging gateway
         self.mgw.start() # start the messaging gateway
         
     def exit(self):
@@ -166,9 +165,6 @@ class TWSEngine(stomp.ConnectionListener):
         queue = '/queue/ticks/%s' % tick['id']
         self.handle_outgoing(tick, queue)
         
-    def handle_error(self, *args):
-        pass
-
     # stomp connection listener methods
     def on_connected(self, headers, body):
         self.mgw.subscribe('/queue/request')
@@ -198,7 +194,7 @@ class TWSEngine(stomp.ConnectionListener):
         else:
             self.handle_incoming(message)
             
-    # incoming message processing      
+    # incoming message processors   
     def process_place_order(self, message): 
         message_contract = message['contract']
         message_order = message['order']
@@ -225,6 +221,7 @@ class TWSEngine(stomp.ConnectionListener):
         ticker_id = message['ticker_id']
         self.cancel_market_data(ticker_id)
         
+    # order methods
     def create_contract(self, c):
         contract = Contract()
         contract.m_symbol = c['symbol']
@@ -250,7 +247,8 @@ class TWSEngine(stomp.ConnectionListener):
         
     def cancel_order(self, order_id):
         self.connection.cancelOrder(order_id)
-        
+    
+    # tick related methods
     def historical_data_request(self, ticker_id, ticker_contract, 
             duration="2 D", bar_size="1 min"):
         contract = self.create_contract(ticker_contract)
@@ -265,7 +263,6 @@ class TWSEngine(stomp.ConnectionListener):
         self.connection.reqMktData(ticker_id, contract, None)
         
     def cancel_market_data(self, ticker_id):
-        # cancel market Data
         self.connection.cancelMktData(ticker_id)
 
 
