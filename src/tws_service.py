@@ -27,7 +27,7 @@ class ResponseWrapper(EWrapper):
         time = datetime.now()
         message = {'type': 'order_status', 'order_id': orderId, 'time': time, 
             'status': status, 'filled': filled, 'remaining': remaining,
-            'avg_fill_price': avgFillPrice, 'last_fill_price': lastFillPrice}
+            'fill_value': avgFillPrice, 'last_fill_price': lastFillPrice}
         self.handler.handle_outgoing(message)
     
     def updateAccountValue(self, key, value, currency, accountName):

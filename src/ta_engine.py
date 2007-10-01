@@ -71,12 +71,14 @@ class TAEngine(stomp.ConnectionListener):
     
     # incoming message processing      
     def process_tick(self, tick):
-        print "tick: %s" % tick
         ticker_id = tick['id']
         ticker = self.tickers.get(ticker_id)
         ticker.ticks.append((tick['date'], tick['value']))
         if getattr(ticker, 'tradable', False): 
-            self.analyze_tick(tick)
+            try:
+                self.analyze_tick(tick)
+            except Exception, e:
+                print "--exception--: %s" % e
         
     def process_tick_hist_last(self, message):
         ticker_id = message['id']
@@ -102,7 +104,6 @@ class TAEngine(stomp.ConnectionListener):
         order.update(message)
     
     def process_account_value(self, message):
-        print "process_account_value, message: %s" % message
         key = message['key']
         value = message['value']
         currency = message['currency']
@@ -170,6 +171,7 @@ class TAEngine(stomp.ConnectionListener):
         else:
             print "error :: unknown signal: %s" % signal
             return
+        print "handle signal: %s" % signal
         order_request = self.create_order_request(trigger_tick, signal, action)
         self.handle_outgoing(order_request)
         
