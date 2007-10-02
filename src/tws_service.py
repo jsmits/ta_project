@@ -87,13 +87,14 @@ class ResponseWrapper(EWrapper):
     def error(self, *args):
         if len(args) == 3: 
             id, code, message = args
-            self.handler.handle_error(id, code, message)
+            self.handler.handle_message_code(id, code, message)
         elif args:
             log.error(args)
         else:
             log.warning("error method called without arguments")
 
     def connectionClosed(self): 
+        # TODO: handle this? trying to reconnect
         log.info("TWS connection closed")
     
     # not implemented methods
@@ -165,7 +166,7 @@ class TWSEngine(stomp.ConnectionListener):
         queue = '/queue/ticks/%s' % tick['id']
         self.handle_outgoing(tick, queue)
         
-    def handle_error(self, id, code, m):
+    def handle_message_code(self, id, code, m):
         critical = [1100, 1300]
         error = [1101, 2100, 2101, 2103]
         warning = [2102, 2105]
@@ -173,17 +174,12 @@ class TWSEngine(stomp.ConnectionListener):
             message = "id: %s, code: %s, message: %s" % (id, code, m)
         else:
             message = "code: %s, message: %s" % (code, m)
-        if code in critical:
-            log.critical(message)
+        if code in critical: log.critical(message)
         elif code <= 1000 or code in error:
-            if code in [165]:
-                log.info(message)
-            else:
-                log.error(message)
-        elif code in warning:
-            log.warning(message)
-        else:
-            log.info(message)
+            if code in [165]: log.info(message)
+            else: log.error(message)
+        elif code in warning: log.warning(message)
+        else: log.info(message)
         # code 1101: Connectivity between IB and TWS has been restored- data lost.*
         # *Market and account data subscription requests must be resubmitted
         # code 2100: New account data requested from TWS.  
