@@ -145,6 +145,9 @@ class TopCandleWrapper(object):
         """
         method = self.__getattribute__("ux_%s" % name)
         return method()
+    
+    def __str__(self):
+        return "%s -> %s" % (self.top, self.candle)
 
 class TopsWrapper(list):
     """Wrap the tops output and provide some utlity methods"""
@@ -166,10 +169,23 @@ class TopsWrapper(list):
         index = self.top_indexes[i]
         return TopCandleWrapper(self, index) 
     
+    def __getslice__(self, *args):
+        if not self.top_indexes: 
+            self.top_indexes = self.__top_indexes()
+        indexes = list.__getslice__(self.top_indexes, *args)
+        start, stop = indexes[0], indexes[-1] + 1 # 1 extra, to include last top
+        candles = list.__getslice__(self.candles, start, stop)
+        tops = list.__getslice__(self.tops, start, stop)
+        return TopsWrapper(candles, tops)
+        
     def __len__(self):
         if not self.top_indexes: 
             self.top_indexes = self.__top_indexes()
         return len(self.top_indexes)
+    
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
 
 def tops(self):
     """Calculate tops

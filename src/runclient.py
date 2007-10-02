@@ -32,6 +32,7 @@ if __name__ == '__main__':
         mgw = MessagingGateway(mconn)
         ta_engine.mgw = mgw
         ta_engine.start()
+        command_service = ta_engine
         while True:
             line = raw_input("\r> ")
             if not line or line.lstrip().rstrip() == '':
@@ -40,8 +41,12 @@ if __name__ == '__main__':
                 break
             split = line.split()
             command = split[0]
-            if not command.startswith("on_") and hasattr(mgw, command):
-                getattr(mgw, command)(split)
+            cmethod = "cl_%s" % command
+            if hasattr(command_service, cmethod):
+                try:
+                    getattr(command_service, cmethod)(split)
+                except Exception, e:
+                    print "command '%s' failed: %s" % (command, e)
             else:
                 print 'unrecognized command'
     finally:

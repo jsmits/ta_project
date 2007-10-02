@@ -236,3 +236,52 @@ class TAEngine(stomp.ConnectionListener):
         request = {'type': 'cancel_market_data', 'ticker_id': ticker_id}
         self.handle_outgoing(request)
         
+    # command-line commands
+    def cl_help(self, args):
+        """help command
+        usage: help command
+        """
+        print "help command entered"
+        
+    def cl_last_tick(self, args):
+        if len(args) == 1:
+            print "please provide a ticker id"
+            return
+        ticker_id = int(args[1])
+        ticker = self.tickers.get(ticker_id, None)
+        if not ticker:
+            print "unknown id"
+            return
+        if len(ticker.ticks) > 0:
+            print "last tick for ticker '%s': %s" % (ticker_id, ticker.ticks[-1])
+        else:
+            print "no ticks available for ticker '%s'" % ticker_id
+            
+    def cl_tickers(self, args):
+        items = self.tickers.items()
+        if items:
+            print "available tickers:"
+            for id, ticker in items:
+                print "%s -> %s" % (id, ticker)
+        else:
+            print "no tickers available"
+            
+    def cl_tops(self, args):
+        ticker_id = int(args[1])
+        period = int(args[2])
+        ticker = self.tickers.get(ticker_id, None)
+        if not ticker:
+            print "unknown id"
+            return
+        number = 10
+        tops = ticker.ticks.cs(period).tops()
+        if len(args) == 4:
+            number = int(args[3])
+            lt = len(tops)
+            if lt > number:
+                tops = tops[-number:]
+        for top in tops:
+            print top
+        
+        
+        

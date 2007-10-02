@@ -2,6 +2,30 @@ from datetime import datetime, timedelta
 
 import indicators
 
+class CandleWrapper(object):
+    """wrap a candle so that the date can be accessed by candle.date and 
+    open, high, low, close can be accessed by candle.open, candle.high, etc.
+    """
+    def __init__(self, candles, index):
+        candles = candles[:] # make a copy otherwise it becomes recursive
+        self.date  = candles[index][0]
+        self.open  = candles[index][1]
+        self.high  = candles[index][2]
+        self.low   = candles[index][3]
+        self.close = candles[index][4]
+    
+    def __getitem__(self, i):
+        if   i == 0: return self.date
+        elif i == 1: return self.open
+        elif i == 2: return self.high
+        elif i == 3: return self.low
+        elif i == 4: return self.close
+        else:
+            raise IndexError, "index out of range: %s" % i
+        
+    def __str__(self):
+        return "%s: %s, %s, %s, %s" % (self.date, self.open, self.high, self.low, self.close)
+
 class Candles(list):
     """hold the candles"""
     def __init__(self, period):
@@ -53,9 +77,19 @@ class Candles(list):
             self.__setattr__(name, meth)
             return getattr(self, name)
         
+    def __getitem__(self, i):
+        return CandleWrapper(self, i) 
+    """
+    def __getslice__(self, *args):
+        candles = list.__getslice__(self, *args)
+        c = Candles(self.period)
+        c.extend(candles)
+        return c
+    """
+        
 class TickWrapper(object):
     """wrap a tick so that the date can be accessed by tick.date and
-    the value can be accessed by date.value
+    the value can be accessed by tick.value
     """
     def __init__(self, ticks, index):
         ticks = ticks[:] # make a copy otherwise it becomes recursive
@@ -67,6 +101,9 @@ class TickWrapper(object):
         elif i == 1: return self.value
         else:
             raise IndexError, "index out of range: %s" % i
+        
+    def __str__(self):
+        return "%s -> %s" % (self.date, self.value)
     
 class Ticks(list):
     """define a tick list"""
@@ -94,5 +131,9 @@ class Ticker(object):
         self.ticks = Ticks()
         for key, value in kwargs.items():
             self.__setattr__(key, value)
-    
+            
+    def __str__(self):
+        # TODO: figure out a way to get to the instance dict
+        # return "symbol: %(symbol)s, type: %(secType)s, expiry: %(expiry)s" % self.__dict__
+        return "symbol: %s, type: %s, expiry: %s" % (self.symbol, self.secType, self.expiry)
         
