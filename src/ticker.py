@@ -33,7 +33,7 @@ class Candles(list):
         self.current = None # current virtual candle
                 
     def process_tick(self, tick):
-        tm, value = tick
+        tm, value, timestamp = tick
         self.current = self.current or [self.__time_boundaries(tm), 
             value, value, value, value]
         if tm <= self.current[0]:
@@ -95,10 +95,12 @@ class TickWrapper(object):
         ticks = ticks[:] # make a copy otherwise it becomes recursive
         self.date = ticks[index][0]
         self.value = ticks[index][1]
+        self.timestamp = ticks[index][2]
     
     def __getitem__(self, i):
         if i == 0: return self.date
         elif i == 1: return self.value
+        elif i == 2: return self.timestamp
         else:
             raise IndexError, "index out of range: %s" % i
         

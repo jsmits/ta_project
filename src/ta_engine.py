@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 import time
+import sys, traceback
 
 import stomp
 from utils import message_encode, message_decode
@@ -67,12 +68,13 @@ class TAEngine(stomp.ConnectionListener):
     def process_tick(self, tick):
         ticker_id = tick['id']
         ticker = self.tickers.get(ticker_id)
-        ticker.ticks.append((tick['date'], tick['value']))
+        ticker.ticks.append((tick['date'], tick['value'], tick['timestamp']))
         if getattr(ticker, 'tradable', False): 
             try:
                 self.analyze_tick(tick)
             except Exception, e:
                 log.error("exception in analyze tick, info: %s" % e)
+                traceback.print_exc(file=sys.stdout)
         
     def process_tick_hist_last(self, message):
         ticker_id = message['id']
