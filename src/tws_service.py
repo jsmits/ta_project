@@ -85,14 +85,13 @@ class ResponseWrapper(EWrapper):
             self.handler.handle_tick(message)
     
     def error(self, *args):
-        if args and len(args) == 3: 
-            log.info("id: %s, code: %s, message: %s" % args)
-        elif args and len(args) == 1:
-            log.error(args)
+        if len(args) == 3: 
+            id, code, message = args
+            self.handler.handle_error(id, code, message)
         elif args:
-            print args
+            log.error(args)
         else:
-            log.error("error method called without arguments")
+            log.warning("error method called without arguments")
 
     def connectionClosed(self): 
         log.info("TWS connection closed")
@@ -129,6 +128,7 @@ class TWSEngine(stomp.ConnectionListener):
         self.response_wrapper = ResponseWrapper()
         self.connection = EClientSocket(self.response_wrapper)
         self.response_wrapper.handler = self
+        self.requested_market_data = {} # memory in case of connection loss
         
     def start(self):
         self.mgw.start() # start the messaging gateway
@@ -165,6 +165,38 @@ class TWSEngine(stomp.ConnectionListener):
         queue = '/queue/ticks/%s' % tick['id']
         self.handle_outgoing(tick, queue)
         
+    def handle_error(self, id, code, m):
+        critical = [1100, 1300]
+        error = [1101, 2100, 2101, 2103]
+        warning = [2102, 2105]
+        if id != -1:
+            message = "id: %s, code: %s, message: %s" % (id, code, m)
+        else:
+            message = "code: %s, message: %s" % (code, m)
+        if code in critical:
+            log.critical(message)
+        elif code <= 1000 or code in error:
+            if code in [165]:
+                log.info(message)
+            else:
+                log.error(message)
+        elif code in warning:
+            log.warning(message)
+        else:
+            log.info(message)
+        # code 1101: Connectivity between IB and TWS has been restored- data lost.*
+        # *Market and account data subscription requests must be resubmitted
+        # code 2100: New account data requested from TWS.  
+        # API client has been unsubscribed from account data. **
+        # **Account data subscription requests must be resubmitted
+        if code in [1101, 2100]:
+            self.account_data_request()
+            if code == 1101:
+                # TODO: PM: let client handle this (also with historical gap fill)
+                # e.g. send a message with type 'error' to the /topic/account with the code 1101
+                for id, contract in self.requested_market_data.items():
+                    self.tick_request(id, contract)
+        
     # stomp connection listener methods
     def on_connected(self, headers, body):
         self.mgw.subscribe('/queue/request')
@@ -183,9 +215,8 @@ class TWSEngine(stomp.ConnectionListener):
             else:
                 break
         log.info("connection to TWS established")
-        self.connection.reqAccountUpdates(True, "")
-        self.connection.reqOpenOrders()
-
+        self.account_data_request()
+        
     def on_message(self, headers, body):
         try:
             message = message_decode(body)
@@ -248,7 +279,11 @@ class TWSEngine(stomp.ConnectionListener):
     def cancel_order(self, order_id):
         self.connection.cancelOrder(order_id)
     
-    # tick related methods
+    # TWS request methods
+    def account_data_request(self):
+        self.connection.reqAccountUpdates(True, "")
+        self.connection.reqOpenOrders()
+    
     def historical_data_request(self, ticker_id, ticker_contract, 
             duration="2 D", bar_size="1 min"):
         contract = self.create_contract(ticker_contract)
@@ -261,8 +296,11 @@ class TWSEngine(stomp.ConnectionListener):
     def tick_request(self, ticker_id, ticker_contract):
         contract = self.create_contract(ticker_contract)
         self.connection.reqMktData(ticker_id, contract, None)
+        self.requested_market_data[ticker_id] = ticker_contract
         
     def cancel_market_data(self, ticker_id):
-        self.connection.cancelMktData(ticker_id)
+        if self.requested_market_data.get(ticker_id, None):
+            self.connection.cancelMktData(ticker_id)
+            del self.requested_market_data[ticker_id]
 
 

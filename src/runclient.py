@@ -24,7 +24,6 @@ if __name__ == '__main__':
         id += 1
         ticker = Ticker(**definition)
         tickers.update({id: ticker})
-    print tickers
     
     try:
         mconn = stomp.Connection([('localhost', 61613)], '', '')
