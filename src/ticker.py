@@ -33,10 +33,10 @@ class Candles(list):
         self.current = None # current virtual candle
                 
     def process_tick(self, tick):
-        time, value = tick
-        self.current = self.current or [self.__time_boundaries(time), 
+        tm, value = tick
+        self.current = self.current or [self.__time_boundaries(tm), 
             value, value, value, value]
-        if time <= self.current[0]:
+        if tm <= self.current[0]:
             self.current[4] = value # reset close
             if value > self.current[2]: # compare with high
                 self.current[2] = value # update high
@@ -44,23 +44,23 @@ class Candles(list):
                 self.current[3] = value # update low
         else:
             self.append(tuple(self.current))
-            if time.date() > self.current[0].date():
+            if tm.date() > self.current[0].date():
                 # next day, do not fill gap
-                self.current = [self.__time_boundaries(time), value, value, 
+                self.current = [self.__time_boundaries(tm), value, value, 
                                 value, value]
             else:
                 # same day, fill gaps if needed
                 candle_time = self.current[0] + timedelta(minutes=self.period)
-                while time > candle_time: # fill gaps
+                while tm > candle_time: # fill gaps
                     close = self.current[4]
                     self.append((candle_time, close, close, close, close))
                     candle_time += timedelta(minutes=self.period)
                 self.current = [candle_time, value, value, value, value]
         
-    def __time_boundaries(self, time):
-        minute = time.minute
+    def __time_boundaries(self, tm):
+        minute = tm.minute
         sm = minute - minute % self.period
-        st = datetime(time.year, time.month, time.day, time.hour, sm, 0)
+        st = datetime(tm.year, tm.month, tm.day, tm.hour, sm, 0)
         et = st + timedelta(minutes=self.period)
         return et
     

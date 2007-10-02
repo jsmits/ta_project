@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import time
-import sys
 import logging
 
 import stomp
@@ -20,18 +19,21 @@ class ResponseWrapper(EWrapper):
         self.handler.handle_outgoing(message)
 
     def tickPrice(self, tickerId, field, price, canAutoExecute):
-        time = datetime.now()
+        tm = datetime.now()
+        timestamp = time.time()
         if field == 4: # last value
-            message = {'type': "tick", 'id': tickerId, 'date': time,
-                'value': price}
+            message = {'type': "tick", 'id': tickerId, 'date': tm,
+                'value': price, 'timestamp': timestamp}
             self.handler.handle_tick(message)
     
     def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, 
         permId, parentId, lastFillPrice, clientId): 
-        time = datetime.now()
-        message = {'type': 'order_status', 'order_id': orderId, 'time': time, 
+        tm = datetime.now()
+        timestamp = time.time()
+        message = {'type': 'order_status', 'order_id': orderId, 'time': tm, 
             'status': status, 'filled': filled, 'remaining': remaining,
-            'fill_value': avgFillPrice, 'last_fill_price': lastFillPrice}
+            'fill_value': avgFillPrice, 'last_fill_price': lastFillPrice,
+            'timestamp': timestamp}
         self.handler.handle_outgoing(message)
     
     def updateAccountValue(self, key, value, currency, accountName):
@@ -56,28 +58,37 @@ class ResponseWrapper(EWrapper):
         count, WAP, hasGaps): 
         try:
             mtype = "tick"
-            d = datetime(*time.localtime(int(date))[:-3])
+            timestamp = int(date)
+            d = datetime(*time.localtime(timestamp)[:-3])
             candle = d, open, high, low, close, volume
             if d.second == 0:
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           d - timedelta(seconds=57), 'value': open}
+                    d - timedelta(seconds=57), 'value': open, 
+                    'timestamp': timestamp - 57}
                 self.handler.handle_tick(message)
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           d - timedelta(seconds=44), 'value': high}
+                    d - timedelta(seconds=44), 'value': high, 
+                    'timestamp': timestamp - 44}
                 self.handler.handle_tick(message)
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           d - timedelta(seconds=28), 'value': low}
+                    d - timedelta(seconds=28), 'value': low, 
+                    'timestamp': timestamp - 28}
                 self.handler.handle_tick(message)
                 message = {'type': mtype, 'id': reqId, 'date': 
-                           d - timedelta(seconds=7), 'value': close}
+                    d - timedelta(seconds=7), 'value': close, 
+                    'timestamp': timestamp - 7}
                 self.handler.handle_tick(message)
             else:
                 base_date = datetime(d.year, d.month, d.day, d.hour, d.minute)
-                delta = timedelta(seconds=d.second/5.0)
+                timestamp_seconds = timestamp % 60
+                base_timestamp = timestamp - timestamp_seconds
+                delta_seconds = d.second/5.0
+                delta = timedelta(seconds=delta_seconds)
                 for i in range(1,5):
                     base_date += delta
+                    base_timestamp += delta_seconds
                     message = {'type': mtype, 'id': reqId, 'date': base_date,
-                               'value': candle[i]}
+                        'value': candle[i], 'timestamp': base_timestamp}
                     self.handler.handle_tick(message)
         except ValueError:
             # send last historical candle message

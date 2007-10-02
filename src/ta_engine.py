@@ -1,5 +1,6 @@
 from datetime import datetime
 import logging
+import time
 
 import stomp
 from utils import message_encode, message_decode
@@ -174,13 +175,16 @@ class TAEngine(stomp.ConnectionListener):
         ticker_id = trigger_tick['id']
         ticker = self.tickers.get(ticker_id)
         trigger_time = trigger_tick['date']
+        trigger_timestamp = trigger_tick['timestamp']
         trigger_value = trigger_tick['value']
         contract = self.create_contract(ticker)
         order_id = self.get_next_valid_id()
         order = self.create_order(order_id, ticker, action)
         order_entry = {'trigger_time': trigger_time, 'trigger_value': 
             trigger_value, 'signal': signal, 'order': order, 'status': 
-            'PendingSubmit', 'order_time': datetime.now()}
+            'PendingSubmit', 'order_time': datetime.now(), 
+            'trigger_timestamp': trigger_timestamp, 
+            'order_timestamp': time.time()}
         self.orders[order_id] = order_entry
         order_ids = self.order_map.get(ticker_id, [])
         order_ids.append(order_id)
@@ -216,7 +220,9 @@ class TAEngine(stomp.ConnectionListener):
     def cancel_order(self, order_id):
         order_entry = self.orders[order_id]
         order_entry['status'] = 'PendingCancel'
+        # PM: make this cancel_time and cancel_timestamp, if possible
         order_entry['time'] = datetime.now()
+        order_entry['timestamp'] = time.time()
         request = {'type': 'cancel_order', 'order_id': order_id}
         self.handle_outgoing(request)
         
