@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import indicators
+from utils import tick_boundaries
 
 class CandleWrapper(object):
     """wrap a candle so that the date can be accessed by candle.date and 
@@ -32,7 +33,7 @@ class Candles(list):
         self.period = period
         self.current = None # current virtual candle
                 
-    def process_tick(self, tick):
+    def old_process_tick(self, tick):
         tm, value, timestamp = tick
         self.current = self.current or [self.__time_boundaries(tm), 
             value, value, value, value]
@@ -55,6 +56,33 @@ class Candles(list):
                     close = self.current[4]
                     self.append((candle_time, close, close, close, close))
                     candle_time += timedelta(minutes=self.period)
+                self.current = [candle_time, value, value, value, value]
+                
+    def process_tick(self, tick):
+        tm, value, timestamp = tick
+        self.current = self.current or [tick_boundaries(timestamp, self.period), 
+            value, value, value, value]
+        if timestamp <= self.current[0]:
+            self.current[4] = value # reset close
+            if value > self.current[2]: # compare with high
+                self.current[2] = value # update high
+            elif value < self.current[3]: # compare with low
+                self.current[3] = value # update low
+        else:
+            self.append(tuple(self.current))
+            # TODO: think about this roll-over
+            if (datetime.utcfromtimestamp(timestamp).date() > 
+                datetime.utcfromtimestamp(self.current[0]).date()):
+                # next UTC day, do not fill gap
+                self.current = [tick_boundaries(timestamp, self.period), value, 
+                                value, value, value]
+            else:
+                # same day, fill gaps if needed
+                candle_time = self.current[0] + (self.period * 60)
+                while timestamp > candle_time: # fill gaps
+                    close = self.current[4]
+                    self.append((candle_time, close, close, close, close))
+                    candle_time += self.period * 60
                 self.current = [candle_time, value, value, value, value]
         
     def __time_boundaries(self, tm):
@@ -105,7 +133,8 @@ class TickWrapper(object):
             raise IndexError, "index out of range: %s" % i
         
     def __str__(self):
-        return "%s -> %s" % (self.date, self.value)
+        date = datetime.fromtimestamp(self.timestamp)
+        return "%s -> %s" % (date, self.value)
     
 class Ticks(list):
     """define a tick list"""
