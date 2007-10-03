@@ -110,9 +110,6 @@ class TopCandleWrapper(object):
     def ux_is_LL(self):
         return self.top == 11
     
-    def ux_date(self):
-        return self.candle[0]
-    
     def ux_timestamp(self):
         return self.candle[0]
     
