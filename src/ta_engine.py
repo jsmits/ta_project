@@ -178,7 +178,7 @@ class TAEngine(stomp.ConnectionListener):
         ticker = self.tickers.get(ticker_id)
         trigger_timestamp = trigger_tick['timestamp']
         trigger_value = trigger_tick['value']
-        contract = self.create_contract(ticker)
+        contract = ticker.create_contract()
         order_id = self.get_next_valid_id()
         order = self.create_order(order_id, ticker, action)
         order_entry = {'trigger_value': trigger_value, 'signal': signal, 
@@ -190,20 +190,11 @@ class TAEngine(stomp.ConnectionListener):
         self.order_map[ticker_id] = order_ids
         return {'type': 'place_order', 'order': order, 'contract': contract}
     
-    def create_contract(self, ticker):
-        contract = {}
-        contract['symbol'] = ticker.symbol
-        contract['secType'] = ticker.secType
-        contract['expiry'] = getattr(ticker, 'expiry', None)
-        contract['exchange'] = ticker.exchange
-        contract['currency'] = ticker.currency
-        return contract
-    
     def create_order(self, order_id, ticker, action):
         order = {}
         order['order_id'] = order_id
         order['action'] = action
-        order['quantity'] = getattr(ticker, 'quantity', 1)
+        order['quantity'] = ticker.quantity
         return order
     
     # request methods
@@ -225,13 +216,13 @@ class TAEngine(stomp.ConnectionListener):
         self.handle_outgoing(request)
         
     def historical_data_request(self, ticker_id, ticker):
-        contract = self.create_contract(ticker)
+        contract = ticker.create_contract()
         request = {'type': 'historical_data_request', 'ticker_id': ticker_id,
             'contract': contract}
         self.handle_outgoing(request)
         
     def tick_request(self, ticker_id, ticker):
-        contract = self.create_contract(ticker)
+        contract = ticker.create_contract()
         request = {'type': 'tick_request', 'ticker_id': ticker_id,
             'contract': contract}
         self.handle_outgoing(request)

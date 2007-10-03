@@ -120,11 +120,17 @@ class Ticker(object):
     """hold ticker data"""
     def __init__(self, *args, **kwargs):
         self.ticks = Ticks()
-        for key, value in kwargs.items():
-            self.__setattr__(key, value)
+        self.__dict__.update(kwargs)
             
     def __str__(self):
-        # TODO: figure out a way to get to the instance dict
-        # return "symbol: %(symbol)s, type: %(secType)s, expiry: %(expiry)s" % self.__dict__
-        return "symbol: %s, type: %s, expiry: %s" % (self.symbol, self.secType, self.expiry)
-        
+        return "symbol: %(symbol)s, type: %(secType)s, expiry: %(expiry)s" % self.__dict__
+
+    def create_contract(self):
+        contract = {}
+        contract['symbol'] = self.symbol
+        contract['secType'] = self.secType
+        contract['expiry'] = getattr(self, 'expiry', None)
+        contract['exchange'] = self.exchange
+        contract['currency'] = self.currency
+        return contract
+    

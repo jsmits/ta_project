@@ -14,7 +14,8 @@ if __name__ == '__main__':
         'expiry': "200712",
         'exchange': "GLOBEX",
         'currency': "USD",
-        'strategy': strategy_1 
+        'strategy': strategy_1,
+        'quantity': 1
         }
     ]
     
