@@ -52,11 +52,11 @@ class TAEngine(stomp.ConnectionListener):
     # message handler methods
     def handle_outgoing(self, obj, topic_or_queue='/queue/request'):
         message = message_encode(obj)
-        log.debug("handle_outgoing: obj: %r, topic or queue: '%s', message: %r" % (obj, topic_or_queue, message))
+        log.debug("send: %r to '%s'" % (obj, topic_or_queue))
         self.mgw.send(topic_or_queue, message)
         
     def handle_incoming(self, message):
-        log.debug("handle_incoming, message: %r" % message)
+        log.debug("recv: %r" % message)
         mtype = message['type']
         method = getattr(self, "process_%s" % mtype, None)
         if not method: 
@@ -188,6 +188,7 @@ class TAEngine(stomp.ConnectionListener):
         order_ids = self.order_map.get(ticker_id, [])
         order_ids.append(order_id)
         self.order_map[ticker_id] = order_ids
+        log.debug("order entry (%s): %r (ticker: %s)" % (order_id, order_entry, ticker_id))
         return {'type': 'place_order', 'order': order, 'contract': contract}
     
     def create_order(self, order_id, ticker, action):

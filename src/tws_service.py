@@ -146,14 +146,42 @@ class TWSEngine(stomp.ConnectionListener):
         log.info("disconnecting IB gateway...")
         self.connection.eDisconnect()
         
+    # stomp connection listener methods
+    def on_connected(self, headers, body):
+        self.mgw.subscribe('/queue/request')
+        # connect and request the account, order, and portfolio updates
+        self.connect()
+        tries = 10
+        while not self.connection.connected:
+            time.sleep(5)
+            if not self.connection.connected:
+                if tries == 0:
+                    log.error("trading gateway connection failed")
+                    return
+                log.error("tws connection trying again...")
+                self.connect()
+                tries -= 1
+            else:
+                break
+        log.info("connection to TWS established")
+        self.account_data_request()
+        
+    def on_message(self, headers, body):
+        try:
+            message = message_decode(body)
+        except:
+            log.error("unable to decode message body: %s" % body)
+        else:
+            self.handle_incoming(message)
+        
     # message handler methods
     def handle_outgoing(self, obj, topic_or_queue='/topic/account'):
         message = message_encode(obj)
-        log.debug("handle_outgoing: obj: %r, topic or queue: '%s', message: %r" % (obj, topic_or_queue, message))
+        log.debug("send: %r to '%s'" % (obj, topic_or_queue))
         self.mgw.send(topic_or_queue, message)
         
     def handle_incoming(self, message):
-        log.debug("handle_incoming, message: %r" % message)
+        log.debug("recv: %r" % message)
         mtype = message['type']
         method = getattr(self, "process_%s" % mtype, None)
         if not method: 
@@ -191,34 +219,6 @@ class TWSEngine(stomp.ConnectionListener):
                 # e.g. send a message with type 'error' to the /topic/account with the code 1101
                 for id, contract in self.requested_market_data.items():
                     self.tick_request(id, contract)
-        
-    # stomp connection listener methods
-    def on_connected(self, headers, body):
-        self.mgw.subscribe('/queue/request')
-        # connect and request the account, order, and portfolio updates
-        self.connect()
-        tries = 10
-        while not self.connection.connected:
-            time.sleep(5)
-            if not self.connection.connected:
-                if tries == 0:
-                    log.error("trading gateway connection failed")
-                    return
-                log.error("tws connection trying again...")
-                self.connect()
-                tries -= 1
-            else:
-                break
-        log.info("connection to TWS established")
-        self.account_data_request()
-        
-    def on_message(self, headers, body):
-        try:
-            message = message_decode(body)
-        except:
-            log.error("unable to decode message body: %s" % body)
-        else:
-            self.handle_incoming(message)
             
     # incoming message processors   
     def process_place_order(self, message): 
