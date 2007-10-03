@@ -9,12 +9,11 @@ class CandleWrapper(object):
     """
     def __init__(self, candles, index):
         candles = candles[:] # make a copy otherwise it becomes recursive
-        self.date  = candles[index][0]
+        self.timestamp = candles[index][0]
         self.open  = candles[index][1]
         self.high  = candles[index][2]
         self.low   = candles[index][3]
         self.close = candles[index][4]
-        self.timestamp = candles[index][0]
     
     def __getitem__(self, i):
         if   i == 0: return self.timestamp
@@ -77,13 +76,6 @@ class Candles(list):
         
     def __getitem__(self, i):
         return CandleWrapper(self, i) 
-    """
-    def __getslice__(self, *args):
-        candles = list.__getslice__(self, *args)
-        c = Candles(self.period)
-        c.extend(candles)
-        return c
-    """
         
 class TickWrapper(object):
     """wrap a tick so that the date can be accessed by tick.date and
@@ -97,7 +89,6 @@ class TickWrapper(object):
     def __getitem__(self, i):
         if   i == 0: return self.timestamp
         elif i == 1: return self.value
-        elif i == 2: return self.timestamp # TODO: remove
         else:
             raise IndexError, "index out of range: %s" % i
         
