@@ -21,4 +21,4 @@ def tick_boundaries(timestamp, period):
     start_date = datetime(date.year, date.month, date.day, date.hour, sm, 0)
     start_timestamp = time.mktime(start_date.timetuple())
     end_timestamp = start_timestamp + (period * 60)
-    return start_timestamp, end_timestamp
+    return end_timestamp

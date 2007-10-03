@@ -68,7 +68,7 @@ class TAEngine(stomp.ConnectionListener):
     def process_tick(self, tick):
         ticker_id = tick['id']
         ticker = self.tickers.get(ticker_id)
-        ticker.ticks.append((tick['date'], tick['value'], tick['timestamp']))
+        ticker.ticks.append(tick)
         if getattr(ticker, 'tradable', False): 
             try:
                 self.analyze_tick(tick)
@@ -117,7 +117,7 @@ class TAEngine(stomp.ConnectionListener):
         position = self.has_position(ticker)
         last_order = self.last_order(id)
         signal = None
-        if not strategy.inside_trading_time(tick['date']):
+        if not strategy.inside_trading_time(tick):
             # PM determine if pending request -> cancel
             if position < 0: signal = 'exit_short_TIME_EXIT'
             elif position > 0: signal = 'exit_long_TIME_EXIT'
@@ -129,7 +129,7 @@ class TAEngine(stomp.ConnectionListener):
                 if last_order and last_order['status'] == 'Filled':
                     if position < 0: exit = 'short'
                     elif position > 0: exit = 'long'
-                    signal = strategy.check_exit(ticker, last_order['time'], 
+                    signal = strategy.check_exit(ticker, last_order['timestamp'], 
                         last_order['fill_value'], exit)
                 if not last_order:
                     if position < 0: signal = 'exit_short_SAFETY'
@@ -176,17 +176,14 @@ class TAEngine(stomp.ConnectionListener):
     def create_order_request(self, trigger_tick, signal, action):
         ticker_id = trigger_tick['id']
         ticker = self.tickers.get(ticker_id)
-        trigger_time = trigger_tick['date']
         trigger_timestamp = trigger_tick['timestamp']
         trigger_value = trigger_tick['value']
         contract = self.create_contract(ticker)
         order_id = self.get_next_valid_id()
         order = self.create_order(order_id, ticker, action)
-        order_entry = {'trigger_time': trigger_time, 'trigger_value': 
-            trigger_value, 'signal': signal, 'order': order, 'status': 
-            'PendingSubmit', 'order_time': datetime.now(), 
-            'trigger_timestamp': trigger_timestamp, 
-            'order_timestamp': time.time()}
+        order_entry = {'trigger_value': trigger_value, 'signal': signal, 
+            'order': order, 'order_timestamp': time.time(),
+            'status': 'PendingSubmit', 'trigger_timestamp': trigger_timestamp}
         self.orders[order_id] = order_entry
         order_ids = self.order_map.get(ticker_id, [])
         order_ids.append(order_id)
@@ -222,8 +219,7 @@ class TAEngine(stomp.ConnectionListener):
     def cancel_order(self, order_id):
         order_entry = self.orders[order_id]
         order_entry['status'] = 'PendingCancel'
-        # PM: make this cancel_time and cancel_timestamp, if possible
-        order_entry['time'] = datetime.now()
+        # TODO: PM: make this cancel_time and cancel_timestamp, if possible
         order_entry['timestamp'] = time.time()
         request = {'type': 'cancel_order', 'order_id': order_id}
         self.handle_outgoing(request)

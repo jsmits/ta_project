@@ -19,21 +19,17 @@ class ResponseWrapper(EWrapper):
         self.handler.handle_outgoing(message)
 
     def tickPrice(self, tickerId, field, price, canAutoExecute):
-        tm = datetime.now()
-        timestamp = time.time()
         if field == 4: # last value
-            message = {'type': "tick", 'id': tickerId, 'date': tm,
-                'value': price, 'timestamp': timestamp}
+            message = {'type': "tick", 'id': tickerId, 'timestamp': time.time(),
+                'value': price}
             self.handler.handle_tick(message)
     
     def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, 
         permId, parentId, lastFillPrice, clientId): 
-        tm = datetime.now()
-        timestamp = time.time()
-        message = {'type': 'order_status', 'order_id': orderId, 'time': tm, 
+        message = {'type': 'order_status', 'order_id': orderId, 
             'status': status, 'filled': filled, 'remaining': remaining,
             'fill_value': avgFillPrice, 'last_fill_price': lastFillPrice,
-            'timestamp': timestamp}
+            'timestamp': time.time()}
         self.handler.handle_outgoing(message)
     
     def updateAccountValue(self, key, value, currency, accountName):
@@ -42,7 +38,7 @@ class ResponseWrapper(EWrapper):
         except ValueError, info: 
             pass
         message = {'type': 'account_value', 'key': key, 'value': value,
-                   'currency': currency}
+            'currency': currency}
         self.handler.handle_outgoing(message)
             
     def updatePortfolio(self, contract, position, marketPrice, marketValue, 
@@ -59,39 +55,31 @@ class ResponseWrapper(EWrapper):
         try:
             mtype = "tick"
             timestamp = int(date)
-            d = datetime(*time.localtime(timestamp)[:-3])
-            candle = d, open, high, low, close, volume
-            if d.second == 0:
-                message = {'type': mtype, 'id': reqId, 'date': 
-                    d - timedelta(seconds=57), 'value': open, 
+            seconds = timestamp % 60
+            candle = timestamp, open, high, low, close, volume
+            if seconds == 0:
+                message = {'type': mtype, 'id': reqId, 'value': open, 
                     'timestamp': timestamp - 57}
                 self.handler.handle_tick(message)
-                message = {'type': mtype, 'id': reqId, 'date': 
-                    d - timedelta(seconds=44), 'value': high, 
+                message = {'type': mtype, 'id': reqId, 'value': high, 
                     'timestamp': timestamp - 44}
                 self.handler.handle_tick(message)
-                message = {'type': mtype, 'id': reqId, 'date': 
-                    d - timedelta(seconds=28), 'value': low, 
+                message = {'type': mtype, 'id': reqId, 'value': low, 
                     'timestamp': timestamp - 28}
                 self.handler.handle_tick(message)
-                message = {'type': mtype, 'id': reqId, 'date': 
-                    d - timedelta(seconds=7), 'value': close, 
+                message = {'type': mtype, 'id': reqId, 'value': close, 
                     'timestamp': timestamp - 7}
                 self.handler.handle_tick(message)
             else:
-                base_date = datetime(d.year, d.month, d.day, d.hour, d.minute)
                 timestamp_seconds = timestamp % 60
                 base_timestamp = timestamp - timestamp_seconds
-                delta_seconds = d.second/5.0
-                delta = timedelta(seconds=delta_seconds)
-                for i in range(1,5):
-                    base_date += delta
+                delta_seconds = seconds / 5.0
+                for i in range(1, 5):
                     base_timestamp += delta_seconds
-                    message = {'type': mtype, 'id': reqId, 'date': base_date,
+                    message = {'type': mtype, 'id': reqId,
                         'value': candle[i], 'timestamp': base_timestamp}
                     self.handler.handle_tick(message)
         except ValueError:
-            # send last historical candle message
             message = {'type': "tick_hist_last", 'id': reqId}
             self.handler.handle_tick(message)
     

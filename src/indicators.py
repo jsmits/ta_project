@@ -113,6 +113,9 @@ class TopCandleWrapper(object):
     def ux_date(self):
         return self.candle[0]
     
+    def ux_timestamp(self):
+        return self.candle[0]
+    
     def ux_open(self):
         return self.candle[1]
     

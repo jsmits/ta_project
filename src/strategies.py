@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from random import randrange, shuffle
 from signals import entry_long_signal_A, entry_long_random, exit_long_stop_cross_value_A, exit_long_take_cross_value_B, exit_long_random 
 from signals import entry_short_signal_B, entry_short_signal_C, entry_short_random
@@ -7,8 +9,10 @@ class Strategy(object):
     """Strategy holder and evaluator"""
     def __init__(self, signals=[], start=None, end=None):
         self.signals = signals
-        self.start = start
-        self.end = end
+        self.start = start # these are local times
+        self.end = end # instances of datetime.time
+        # if you want to specifiy start and end in utc, inside_trading_time
+        # should be called with utc=True
         
     def check_entry(self, ticker):
         signals = [s for s in self.signals if s.__name__.startswith("entry_")]
@@ -21,7 +25,11 @@ class Strategy(object):
         for signal in signals:
             if signal(ticker, entry_time, entry_value): return signal.__name__
             
-    def inside_trading_time(self, d):
+    def inside_trading_time(self, tick, utc=False):
+        timestamp = tick['timestamp']
+        convert_timestamp = datetime.fromtimestamp
+        if utc: convert_timestamp = datetime.utcfromtimestamp
+        d = convert_timestamp(timestamp)
         if self.start and self.end:
             if d.time() >= self.start and d.time() < self.end:
                 return True

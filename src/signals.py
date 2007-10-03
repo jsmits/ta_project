@@ -42,7 +42,7 @@ def entry_long_tops_generic_1(ticker, l, s):
             if ts[-2].is_high and ts[-1].is_low: # condition 2
                 if tl[-2].high > ts[-2].high and tl[-1].low < ts[-1].low: # condition 3
                     for i in range(2, len(ticks)): # very important -2 not -1
-                        if ticks[-i].date <= ts[-1].date: break 
+                        if ticks[-i].timestamp <= ts[-1].timestamp: break 
                         if ticks[-i].value >= ts[-2].high or ticks[-i].value <= ts[-1].low: # condition 4
                             return False
                     if ticks[-1].value >= ts[-2].high: # final condition 5
@@ -57,8 +57,8 @@ def entry_long_tops_generic_2(ticker, l, s):
             candles = ticks.cs(s)
             ts = ticks.cs(s).tops()
             if ts[-1].is_low and ts[-1].low > tl[-2].low: # condition 2 and 3
-                if candles[-2][0] == ts[-1].date and ts[-1].no_tops == 1: # condition 4 and 5
-                    print "long generic 2, date=%s, l=%s, s=%s" % (str(ticks[-1].date), l, s)
+                if candles[-2].timestamp == ts[-1].timestamp and ts[-1].no_tops == 1: # condition 4 and 5
+                    print "long generic 2, date=%s, l=%s, s=%s" % (str(ticks[-1].timestamp), l, s)
                     return True
     return False
 
@@ -86,8 +86,8 @@ def entry_short_tops_generic_2(ticker, l, s):
             candles = ticks.cs(s)
             ts = ticks.cs(s).tops()
             if ts[-1].is_high and ts[-1].high < tl[-2].high: # condition 2 and 3
-                if candles[-2][0] == ts[-1].date and ts[-1].no_tops == 1: # condition 4 and 5
-                    print "short generic 2, date=%s, l=%s, s=%s" % (str(ticks[-1].date), l, s)
+                if candles[-2].timestamp == ts[-1].timestamp and ts[-1].no_tops == 1: # condition 4 and 5
+                    print "short generic 2, timestamp=%s, l=%s, s=%s" % (str(ticks[-1].timestamp), l, s)
                     return True
     return False
 

@@ -14,9 +14,10 @@ class CandleWrapper(object):
         self.high  = candles[index][2]
         self.low   = candles[index][3]
         self.close = candles[index][4]
+        self.timestamp = candles[index][0]
     
     def __getitem__(self, i):
-        if   i == 0: return self.date
+        if   i == 0: return self.timestamp
         elif i == 1: return self.open
         elif i == 2: return self.high
         elif i == 3: return self.low
@@ -25,7 +26,8 @@ class CandleWrapper(object):
             raise IndexError, "index out of range: %s" % i
         
     def __str__(self):
-        return "%s: %s, %s, %s, %s" % (self.date, self.open, self.high, self.low, self.close)
+        date = datetime.fromtimestamp(self.timestamp)
+        return "%s: %s, %s, %s, %s" % (date, self.open, self.high, self.low, self.close)
 
 class Candles(list):
     """hold the candles"""
@@ -33,33 +35,8 @@ class Candles(list):
         self.period = period
         self.current = None # current virtual candle
                 
-    def old_process_tick(self, tick):
-        tm, value, timestamp = tick
-        self.current = self.current or [self.__time_boundaries(tm), 
-            value, value, value, value]
-        if tm <= self.current[0]:
-            self.current[4] = value # reset close
-            if value > self.current[2]: # compare with high
-                self.current[2] = value # update high
-            elif value < self.current[3]: # compare with low
-                self.current[3] = value # update low
-        else:
-            self.append(tuple(self.current))
-            if tm.date() > self.current[0].date():
-                # next day, do not fill gap
-                self.current = [self.__time_boundaries(tm), value, value, 
-                                value, value]
-            else:
-                # same day, fill gaps if needed
-                candle_time = self.current[0] + timedelta(minutes=self.period)
-                while tm > candle_time: # fill gaps
-                    close = self.current[4]
-                    self.append((candle_time, close, close, close, close))
-                    candle_time += timedelta(minutes=self.period)
-                self.current = [candle_time, value, value, value, value]
-                
     def process_tick(self, tick):
-        tm, value, timestamp = tick
+        timestamp, value = tick['timestamp'], tick['value'] 
         self.current = self.current or [tick_boundaries(timestamp, self.period), 
             value, value, value, value]
         if timestamp <= self.current[0]:
@@ -75,7 +52,7 @@ class Candles(list):
                 datetime.utcfromtimestamp(self.current[0]).date()):
                 # next UTC day, do not fill gap
                 self.current = [tick_boundaries(timestamp, self.period), value, 
-                                value, value, value]
+                    value, value, value]
             else:
                 # same day, fill gaps if needed
                 candle_time = self.current[0] + (self.period * 60)
@@ -84,13 +61,6 @@ class Candles(list):
                     self.append((candle_time, close, close, close, close))
                     candle_time += self.period * 60
                 self.current = [candle_time, value, value, value, value]
-        
-    def __time_boundaries(self, tm):
-        minute = tm.minute
-        sm = minute - minute % self.period
-        st = datetime(tm.year, tm.month, tm.day, tm.hour, sm, 0)
-        et = st + timedelta(minutes=self.period)
-        return et
     
     def __getattr__(self, name):
         # gets the indicators and calculates them
@@ -121,14 +91,13 @@ class TickWrapper(object):
     """
     def __init__(self, ticks, index):
         ticks = ticks[:] # make a copy otherwise it becomes recursive
-        self.date = ticks[index][0]
-        self.value = ticks[index][1]
-        self.timestamp = ticks[index][2]
+        self.timestamp = ticks[index]['timestamp']
+        self.value = ticks[index]['value']
     
     def __getitem__(self, i):
-        if i == 0: return self.date
+        if   i == 0: return self.timestamp
         elif i == 1: return self.value
-        elif i == 2: return self.timestamp
+        elif i == 2: return self.timestamp # TODO: remove
         else:
             raise IndexError, "index out of range: %s" % i
         
