@@ -7,6 +7,11 @@ try:
     import simplejson
 except ImportError:
     simplejson = None
+    
+try:
+    import cjson
+except ImportError:
+    cjson = None
 
 def pickle_encode(obj):
     dp = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
@@ -67,31 +72,53 @@ if __name__ == '__main__':
            'w' : {'id': 1, 'timestamp': 11425252551.982872, 'value': 1455.25}
            }
     
-    # obj = {'id': 1, 'timestamp': 11425252551.982872, 'value': 1455.25}
+    obj = {'id': 1, 'timestamp': 11425252551.982872, 'value': 1455.25}
     
     start = time.time()
     obj_enc = pickle_encode(obj)
-    print "pickle encoding took: %s seconds" % repr(time.time() - start)
+    print "pickle encoding took: %s ms" % repr((time.time() - start) * 1000)
     start = time.time()
     obj_dec = pickle_decode(obj_enc)
-    print "pickle decoding took: %s seconds" % repr(time.time() - start)
+    print "pickle decoding took: %s ms" % repr((time.time() - start) * 1000)
     
     try:
-        # try block for jython = without simplejson
         start = time.time()
         obj_enc = simplejson.dumps(obj)
-        print "json encoding took: %s seconds" % repr(time.time() - start)
+        print "simplejson encoding took: %s ms" % repr((time.time() - start) * 1000)
         start = time.time()
         obj_dec = simplejson.loads(obj_enc)
-        print "simplejson decoding took: %s seconds" % repr(time.time() - start)
+        print "simplejson decoding took: %s ms" % repr((time.time() - start) * 1000)
+    except:
+        pass
+    
+    try:
+        start = time.time()
+        obj_enc = cjson.encode(obj)
+        print "cjson encoding took: %s ms" % repr((time.time() - start) * 1000)
+        start = time.time()
+        obj_dec = cjson.decode(obj_enc)
+        print "cjson decoding took: %s ms" % repr((time.time() - start) * 1000)
     except:
         pass
     
     start = time.time()
     obj_enc = string_encode(obj)
-    print "string encoding took: %s seconds" % repr(time.time() - start)
+    print "string encoding took: %s ms" % repr((time.time() - start) * 1000)
     start = time.time()
     obj_dec = string_decode(obj_enc)
-    print "string decoding took: %s seconds" % repr(time.time() - start)
+    print "string decoding took: %s ms" % repr((time.time() - start) * 1000)
+    
+    number = 1000000
+    times = []
+    bst = time.time()
+    for i in range(number):
+        start = time.time()
+        res = string_encode(obj)
+        end = time.time() - start
+        times.append(end * 1000)
+    est = time.time()
+    print "running string_encode %s times took %s ms" % (number, repr((est-bst) * 1000))
+    print "min: %s ms, max: %s ms, avg: %s ms" % (min(times), max(times), sum(times)/len(times))
+        
     
     

@@ -28,8 +28,8 @@ class CandleWrapper(object):
         date = datetime.fromtimestamp(self.timestamp)
         return "%s: %s, %s, %s, %s" % (date, self.open, self.high, self.low, self.close)
 
-class Candles(list):
-    """hold the candles"""
+class TickCandles(list):
+    """tick-based candles for a given period (in minutes)"""
     def __init__(self, period):
         self.period = period
         self.current = None # current virtual candle
@@ -103,7 +103,7 @@ class Ticks(list):
         
     def candles(self, period):
         candles_key = period
-        cs, start_index = self.cache.get(candles_key, (Candles(period), 0))
+        cs, start_index = self.cache.get(candles_key, (TickCandles(period), 0))
         for tick in self[start_index:]:
             cs.process_tick(tick)
         self.cache[candles_key] = cs, len(self)
