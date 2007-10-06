@@ -36,7 +36,39 @@ class Strategy(object):
             else: 
                 return False
         return True
-            
+    
+class StrategyNS(object):
+    def __init__(self, signal, bracket=(1.00, 1.00)):
+        self.signal = signal
+        self.bracket = bracket # first index is STOP, second is LIMIT
+        self.trigger_tick = None
+        
+    def check_entry(self, ticker):
+        resp = self.signal(ticker)
+        # response can be None, False, True, or a bracket tuple
+        if resp:
+            self.trigger_tick = ticker.ticks[-1]
+            # get the dynamic bracket from the response
+            if isinstance(resp, tuple):
+                self.bracket = resp
+            return self
+        
+    def exit_params(self):
+        ref_value = self.trigger_tick.value
+        signal = self.signal.__name__
+        if signal.startswith('entry_long'):  
+            action = "SELL"
+            stop = ref_value - self.bracket[0]
+            limit = ref_value + self.bracket[1]
+            return action, stop, limit
+        elif signal.startswith('entry_short'): 
+            action = "BUY"
+            stop = ref_value + self.bracket[0]
+            limit = ref_value - self.bracket[1]
+            return action, stop, limit
+        
+strategy_list = [StrategyNS(entry_long_random), StrategyNS(entry_short_random)]
+        
 strategy_1 = Strategy(signals=[
     entry_long_signal_A, entry_long_random, 
     exit_long_stop_cross_value_A, exit_long_take_cross_value_B, exit_long_random, 

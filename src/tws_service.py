@@ -203,7 +203,7 @@ class TWSEngine(stomp.ConnectionListener):
             message = "code: %s, message: %s" % (code, m)
         if code in critical: log.critical(message)
         elif code <= 1000 or code in error:
-            if code in [165]: log.info(message)
+            if code in [165, 202]: log.info(message)
             else: log.error(message)
         elif code in warning: log.warning(message)
         else: log.info(message)
@@ -263,9 +263,34 @@ class TWSEngine(stomp.ConnectionListener):
         order.m_clientId = self.client_id
         order.m_action = o['action']
         order.m_totalQuantity = o['quantity']
-        order.m_orderType = 'MKT' # guaranteed execution
-        order.m_lmtPrice = 0
-        order.m_auxPrice = 0
+        if o['type'] == 'MKT':
+            order.m_orderType = o['type'] # guaranteed execution
+            order.m_lmtPrice = 0
+            order.m_auxPrice = 0
+        elif o['type'] == 'LMT_entry':
+            order.m_orderType = o['type'][:3]
+            order.m_lmtPrice = o['limit']
+            order.m_auxPrice = 0
+            order.m_tif = 'GTD' # TWS timeout
+            gtt = o['trigger_timestamp'] + 300 # valid for 5 minutes
+            enddate = datetime.fromtimestamp(gtt)
+            # TWS expects date format: YYYYMMDD hh:mm:ss in the current
+            # system's timezone
+            gtd = datetime.strftime(enddate, "%Y%m%d %H:%M:%S")
+            order.m_goodTillDate = gtd
+        elif o['type'] == 'LMT_exit':
+            # set group
+            order.m_orderType = o['type'][:3]
+            order.m_lmtPrice = o['limit']
+            order.m_auxPrice = 0
+            order.m_ocaGroup = o['ocagroup']
+        elif o['type'] == 'STP':
+            order.m_orderType = o['type']
+            order.m_lmtPrice = 0
+            order.m_auxPrice = o['stop']
+            order.m_ocaGroup = o['ocagroup']
+        else:
+            log.error("invalid order type: %s" % o['type'])
         return order
         
     def place_order(self, order_id, contract, order):

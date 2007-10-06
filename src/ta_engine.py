@@ -87,9 +87,19 @@ class TAEngine(stomp.ConnectionListener):
         self.next_id = message.get('value')
         
     def process_order_status(self, message):
-        order = self.orders.get(message['order_id'], None)
-        if not order: return # not for this instance
-        order.update(message)
+        order_entry = self.orders.get(message['order_id'], None)
+        if not order_entry: return # not for this instance
+        order_entry.update(message)
+        # if this is a Filled entry order -> create and send STOP/LIMIT order
+        strategy = order_entry.get('strategy')
+        if strategy and order_entry['order']['type'] == "LMT_entry" \
+            and message['status'] == 'Filled' and \
+            not order_entry.get("exit_handled", False):
+            ticker_id = order_entry['tick'].id
+            ticker = self.tickers.get(ticker_id)
+            order_entry['exit_handled'] = True # to avoid doubles, sometimes 
+            # a entry fill is confirmed 2 times
+            self.exit_order_request(ticker, strategy)
     
     def process_account_value(self, message):
         key = message['key']
@@ -110,32 +120,35 @@ class TAEngine(stomp.ConnectionListener):
     
     # tick analyzing methods
     def analyze_tick(self, tick):
-        id = tick['id']
-        ticker = self.tickers.get(id)
+        ticker_id = tick['id']
+        ticker = self.tickers.get(ticker_id)
         strategy = ticker.strategy
         if not strategy: return
         position = self.has_position(ticker)
-        last_order = self.last_order(id)
-        signal = None
-        if not strategy.inside_trading_time(tick):
-            # PM determine if pending request -> cancel
-            if position < 0: signal = 'exit_short_TIME_EXIT'
-            elif position > 0: signal = 'exit_long_TIME_EXIT'
+        #if strategy.inside_trading_time(tick):
+        if not position:
+            order_id = self.pending_order_id(ticker_id, "LMT_entry")
+            if not order_id:
+                for s in strategy:
+                    st = s.check_entry(ticker)
+                    if st: 
+                        self.limit_order_request(ticker, st)
+                        break
+        """
         else:
-            if not position:
-                if not last_order or not 'Submit' in last_order['status']:
-                    signal = strategy.check_entry(ticker)
+            if position < 0: 
+                order_id = self.pending_order_id(ticker_id, "STPLMT")
+                if order_id: self.cancel_order(order_id)
+                self.market_order_request(ticker, "BUY")
+            elif position > 0: 
+                order_id = self.pending_order_id(ticker_id, "STPLMT")
+                if order_id: self.cancel_order(order_id)
+                self.market_order_request(ticker, "SELL")
             else:
-                if last_order and last_order['status'] == 'Filled':
-                    if position < 0: exit = 'short'
-                    elif position > 0: exit = 'long'
-                    signal = strategy.check_exit(ticker, last_order['timestamp'], 
-                        last_order['fill_value'], exit)
-                if not last_order:
-                    if position < 0: signal = 'exit_short_SAFETY'
-                    elif position > 0: signal = 'exit_long_SAFETY'
-        self.handle_signal(tick, signal)
-
+                order_id = self.pending_order_id(ticker_id, "LMT")
+                if order_id: self.cancel_order(order_id)
+        """
+        
     def has_position(self, ticker):
         for key in self.portfolio.keys():
             if key == ticker.symbol or key.startswith("%s_" % ticker.symbol):
@@ -148,66 +161,60 @@ class TAEngine(stomp.ConnectionListener):
             last_order_id = order_ids[-1]
             order_entry = self.orders[last_order_id]
             return order_entry
-    
-    def handle_signal(self, trigger_tick, signal):
-        if not signal: return
-        # this is for futures
-        if   signal.startswith('entry_long'):  action = 'BUY'
-        elif signal.startswith('exit_long'):   action = 'SELL'
-        elif signal.startswith('entry_short'): action = 'SELL'
-        elif signal.startswith('exit_short'):  action = 'BUY'
-        else:
-            log.error('unknown signal: "%s"' % signal)
-            return
-        self.order_request(trigger_tick, signal, action)
+        
+    def pending_order_id(self, ticker_id, type):
+        order_ids = self.order_map.get(ticker_id)
+        if order_ids:
+            last_order_id = order_ids[-1]
+            order_entry = self.orders[last_order_id]
+            if "Submit" in order_entry['status'] and \
+                order_entry['order']['type'] == type:
+                return last_order_id
     
     # order utility methods
     def get_next_valid_id(self):
         order_id = self.next_id
         if not order_id: 
             raise NoValidOrderIdException()
-        self.publish_next_id(order_id+1)
+        self.next_id += 1 # this is done for speed
+        self.publish_next_id(self.next_id)
         return order_id
         
     def publish_next_id(self, order_id):
         obj = {'type': "next_valid_id", 'value': order_id}
         self.handle_outgoing(obj, '/topic/account')
     
-    def create_order_request(self, trigger_tick, signal, action):
-        ticker_id = trigger_tick['id']
-        ticker = self.tickers.get(ticker_id)
-        trigger_timestamp = trigger_tick['timestamp']
-        trigger_value = trigger_tick['value']
-        contract = ticker.create_contract()
-        order_id = self.get_next_valid_id()
-        order = self.create_order(order_id, ticker, action)
-        order_entry = {'trigger_value': trigger_value, 'signal': signal, 
-            'order': order, 'order_timestamp': time.time(),
-            'status': 'PendingSubmit', 'trigger_timestamp': trigger_timestamp}
+    def new_order_entry(self, ticker, order, **kw):
+        tick = ticker.ticks[-1] # last tick == trigger tick
+        ticker_id = tick.id
+        order_entry = {'tick': tick, 'order': order, 
+            'order_timestamp': time.time(), 'status': 'PendingSubmit'}
+        order_entry.update(kw)
+        order_id = order['order_id']
         self.orders[order_id] = order_entry
         order_ids = self.order_map.get(ticker_id, [])
         order_ids.append(order_id)
         self.order_map[ticker_id] = order_ids
-        log.debug("order entry (%s): %r (ticker: %s)" % (order_id, order_entry, ticker_id))
-        return {'type': 'place_order', 'order': order, 'contract': contract}
+        return order_id
     
-    def create_order(self, order_id, ticker, action):
+    def create_order(self, ticker, action, type, **kw):
         order = {}
+        order_id = self.get_next_valid_id()
         order['order_id'] = order_id
         order['action'] = action
         order['quantity'] = ticker.quantity
+        order['type'] = type
+        order.update(kw)
         return order
     
+    def get_signal(self, strategy):
+        signal = strategy.signal.__name__
+        if   signal.startswith('entry_long'):  return "BUY"
+        elif signal.startswith('entry_short'): return "SELL"
+        else: 
+            log.error('unknown signal: "%s"' % signal)
+            
     # request methods
-    def order_request(self, trigger_tick, signal, action):
-        try:
-            order_request = self.create_order_request(trigger_tick, signal, action)
-        except NoValidOrderIdException:
-            log.error("no valid order id, stop server and client, start client, "\
-                "and then start server")
-            return
-        self.handle_outgoing(order_request)
-    
     def cancel_order(self, order_id):
         order_entry = self.orders[order_id]
         order_entry['status'] = 'PendingCancel'
@@ -230,6 +237,40 @@ class TAEngine(stomp.ConnectionListener):
         
     def cancel_market_data(self, ticker_id):
         request = {'type': 'cancel_market_data', 'ticker_id': ticker_id}
+        self.handle_outgoing(request)
+        
+    def market_order_request(self, ticker, action):
+        contract = ticker.create_contract()
+        order = self.create_order(ticker, action, "MKT")
+        self.new_order_entry(ticker, order)
+        request = {'type': 'place_order', 'order': order, 'contract': contract}
+        self.handle_outgoing(request)
+        
+    def limit_order_request(self, ticker, strategy):
+        tick = ticker.ticks[-1] # trigger tick
+        contract = ticker.create_contract()
+        action = self.get_signal(strategy) # determine by strategy signal
+        order = self.create_order(ticker, action, "LMT_entry", 
+            trigger_timestamp=tick.timestamp, limit=tick.value)
+        self.new_order_entry(ticker, order, strategy=strategy)
+        request = {'type': 'place_order', 'order': order, 'contract': contract}
+        self.handle_outgoing(request)
+    
+    def exit_order_request(self, ticker, strategy):
+        contract = ticker.create_contract()
+        action, stop, limit = strategy.exit_params() # determine by strategy signal
+        ocagroup = repr(time.time())
+        stop_order = self.create_order(ticker, action, "STP", 
+            stop=stop, ocagroup=ocagroup)
+        self.new_order_entry(ticker, stop_order, strategy=strategy)
+        request = {'type': 'place_order', 'order': stop_order, 
+            'contract': contract}
+        self.handle_outgoing(request)
+        limit_order = self.create_order(ticker, action, "LMT_exit", 
+            limit=limit, ocagroup=ocagroup)
+        self.new_order_entry(ticker, limit_order, strategy=strategy)
+        request = {'type': 'place_order', 'order': limit_order, 
+            'contract': contract}
         self.handle_outgoing(request)
         
     # command-line commands

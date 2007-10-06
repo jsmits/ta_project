@@ -1,5 +1,5 @@
 import logger # configure the loggers
-from strategies import strategy_1
+from strategies import strategy_1, strategy_NS, strategy_list
 
 if __name__ == '__main__':
     
@@ -14,7 +14,8 @@ if __name__ == '__main__':
         'expiry': "200712",
         'exchange': "GLOBEX",
         'currency': "USD",
-        'strategy': strategy_1,
+        'strategy': strategy_list,
+        'increment': 0.25,
         'quantity': 1
         }
     ]

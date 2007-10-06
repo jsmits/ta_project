@@ -83,6 +83,7 @@ class TickWrapper(object):
     """
     def __init__(self, ticks, index):
         ticks = ticks[:] # make a copy otherwise it becomes recursive
+        self.id = ticks[index]['id']
         self.timestamp = ticks[index]['timestamp']
         self.value = ticks[index]['value']
     
