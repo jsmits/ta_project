@@ -16,23 +16,6 @@ def ma_co(candles, ma_type, params, direction):
                     return True
             return False
         
-def macd_co(candles, params, direction):
-    "MACD cross-over"
-    pass        
-
-def tick_co(ticks, entry_time, entry_value, border):
-    last_tick = ticks[-1].value
-    if border == abs(border): # positive border
-        if last_tick >= entry_value + border:
-            return True
-        else:
-            return False
-    if not border == abs(border): # negative border
-        if last_tick <= entry_value + border:
-            return True
-        else:
-            return False
-        
 def entry_long_tops_generic_1(ticker, l, s):
     ticks = ticker.ticks
     tl = ticks.cs(l).tops()
@@ -91,65 +74,13 @@ def entry_short_tops_generic_2(ticker, l, s):
                     return True
     return False
 
-# custom signals
-def entry_long_signal_A(ticker):
-    candles = ticker.ticks.cs(5)
-    return ma_co(candles, 'ema', 12, 1)
-
-def entry_short_signal_B(ticker):
-    candles = ticker.ticks.cs(3)
-    return ma_co(candles, 'sma', 3, -1)
-
-def entry_short_signal_C(ticker):
-    candles = ticker.ticks.cs(15)
-    return ma_co(candles, 'ema', 11, -1)
-
+# random signals for testing the API
 def entry_long_random(ticker):
     if r.random() > 0.95:
         return True
     
 def entry_short_random(ticker):
     if r.random() > 0.95:
-        return True
-
-def exit_long_stop_cross_value_A(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, -0.75)
-
-def exit_long_take_cross_value_B(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, 1.00)
-
-def exit_long_stop_cross_value_AA(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, -1.00)
-
-def exit_long_take_cross_value_BA(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, 1.25)
-
-def exit_long_random(ticker, entry_time, entry_value):
-    if r.random() < 0.02:
-        return True
-    
-def exit_short_take_cross_value_A(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, -1.00)
-
-def exit_short_stop_cross_value_B(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, 0.75)
-
-def exit_short_take_cross_value_AA(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, -1.25)
-
-def exit_short_stop_cross_value_BA(ticker, entry_time, entry_value):
-    ticks = ticker.ticks
-    return tick_co(ticks, entry_time, entry_value, 1.00)
-
-def exit_short_random(ticker, entry_time, entry_value):
-    if r.random() < 0.02:
         return True
 
 # tops entries long, generic 1  
@@ -260,8 +191,6 @@ available_signals = [
     #entry_long_tops_1_1, entry_long_tops_1_2, entry_long_tops_1_3, entry_long_tops_1_4, entry_long_tops_1_5,
     #entry_short_tops_1_1, entry_short_tops_1_2, entry_short_tops_1_3, entry_short_tops_1_4, entry_short_tops_1_5, 
     entry_long_tops_2_1, entry_long_tops_2_2, entry_long_tops_2_3, entry_long_tops_2_4, entry_long_tops_2_5,
-    entry_short_tops_2_1, entry_short_tops_2_2, entry_short_tops_2_3, entry_short_tops_2_4, entry_short_tops_2_5,     
-    exit_long_stop_cross_value_A, exit_long_take_cross_value_B, exit_long_stop_cross_value_AA, exit_long_take_cross_value_BA,
-    exit_short_take_cross_value_A, exit_short_stop_cross_value_B, exit_short_take_cross_value_AA, exit_short_stop_cross_value_BA
+    entry_short_tops_2_1, entry_short_tops_2_2, entry_short_tops_2_3, entry_short_tops_2_4, entry_short_tops_2_5   
 ]
 

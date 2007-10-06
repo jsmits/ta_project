@@ -1,42 +1,9 @@
 from datetime import datetime
 
 from random import randrange, shuffle
-from signals import entry_long_signal_A, entry_long_random, exit_long_stop_cross_value_A, exit_long_take_cross_value_B, exit_long_random 
-from signals import entry_short_signal_B, entry_short_signal_C, entry_short_random
-from signals import exit_short_take_cross_value_A, exit_short_stop_cross_value_B, exit_short_random
+from signals import entry_long_random
+from signals import entry_short_random
 
-class Strategy(object):
-    """Strategy holder and evaluator"""
-    def __init__(self, signals=[], start=None, end=None):
-        self.signals = signals
-        self.start = start # these are local times
-        self.end = end # instances of datetime.time
-        # if you want to specifiy start and end in utc, inside_trading_time
-        # should be called with utc=True
-        
-    def check_entry(self, ticker):
-        signals = [s for s in self.signals if s.__name__.startswith("entry_")]
-        for signal in signals:
-            if signal(ticker): return signal.__name__
-
-    def check_exit(self, ticker, entry_time, entry_value, entry_direction):
-        signals = [s for s in self.signals 
-                   if s.__name__.startswith("exit_%s" % entry_direction)]
-        for signal in signals:
-            if signal(ticker, entry_time, entry_value): return signal.__name__
-            
-    def inside_trading_time(self, tick, utc=False):
-        timestamp = tick['timestamp']
-        convert_timestamp = datetime.fromtimestamp
-        if utc: convert_timestamp = datetime.utcfromtimestamp
-        d = convert_timestamp(timestamp)
-        if self.start and self.end:
-            if d.time() >= self.start and d.time() < self.end:
-                return True
-            else: 
-                return False
-        return True
-    
 class StrategyNS(object):
     def __init__(self, signal, bracket=(1.00, 1.00)):
         self.signal = signal
@@ -69,13 +36,6 @@ class StrategyNS(object):
         
 strategy_list = [StrategyNS(entry_long_random), StrategyNS(entry_short_random)]
         
-strategy_1 = Strategy(signals=[
-    entry_long_signal_A, entry_long_random, 
-    exit_long_stop_cross_value_A, exit_long_take_cross_value_B, exit_long_random, 
-    entry_short_signal_B, entry_short_signal_C, entry_short_random,
-    exit_short_take_cross_value_A, exit_short_stop_cross_value_B, exit_short_random]
-)
-
 def random_signal_combos_generator(signals, output=100, exclude_combos=[]):
     """Return a list of unique signal combinations."""
     entry_signals = [s for s in signals if s.__name__.startswith('entry')]
@@ -141,6 +101,7 @@ def random_signal_combos_generator(signals, output=100, exclude_combos=[]):
     return signal_combos
 
 if __name__ == '__main__':
+    
     from signals import available_signals
     
     signal_combos = random_signal_combos_generator(available_signals, 50)
