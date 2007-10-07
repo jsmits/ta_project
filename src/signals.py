@@ -57,29 +57,22 @@ def entry_short_random(ticker):
 
 available_signals = [entry_long_tops_1, entry_short_tops_1]
 
-def tops_signal_generator(long_short_signal_pair):
-    """generates long and short signals"""
-    l_options = [60, 30, 20, 15, 10, 5]
-    s_options = [20, 15, 10, 5, 3, 2, 1]
-    long_signals = []
-    short_signals = []
-    for generator in long_short_signal_pair:
-        for lo in l_options:
-            for so in s_options:
-                if so * 2 < lo:
-                    new = (generator, (lo, so))
-                    if generator.__name__.startswith("entry_long"):
-                        long_signals.append(new)
-                    elif generator.__name__.startswith("entry_short"):
-                        short_signals.append(new)
-    for s in long_signals:
-        print "generated (long): l=%s, s=%s" % s[1]
-    for s in short_signals:
-        print "generated (short): l=%s, s=%s" % s[1]
-    long_output  = [s[0](*s[1]) for s in long_signals]
-    short_output = [s[0](*s[1]) for s in short_signals]
-    return long_output, short_output
+def l_s_options_generator(l_options=[60, 30, 20, 15, 10, 5],
+                          s_options=[20, 15, 10, 5, 3, 2, 1]):
+    args = []
+    for lo in l_options:
+        for so in s_options:
+            if so * 2 < lo:
+                args.append((lo, so))
+    return args
+
+def signal_generator(long_generator, short_generator, args=[]):
+    """generates long and short signal genrator based on the given args"""
+    generator_args = args or l_s_options_generator()
+    long_signals = [(long_generator, args) for args in generator_args]
+    short_signals = [(short_generator, args) for args in generator_args]
+    return long_signals, short_signals
           
 if __name__ == '__main__':
-    longs, shorts = tops_signal_generator(available_signals)
+    long_signal_generators, short_signal_generators = signal_generator(entry_long_tops_1, entry_short_tops_1)
     
