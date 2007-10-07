@@ -17,34 +17,36 @@ def ma_co(candles, ma_type, params, direction):
             return False
         
 def entry_long_tops_1(l, s):
-    def signal(ticker):
+    def entry_long_tops_1_signal(ticker):
         ticks = ticker.ticks
-        tl = ticks.cs(l).tops()
-        if len(tl) >= 2: # pre-condition
-            if tl[-2].is_low and tl[-1].is_high: # condition 1
-                candles = ticks.cs(s)
-                ts = ticks.cs(s).tops()
-                if ts[-1].is_low and ts[-1].low > tl[-2].low: # condition 2 and 3
-                    if candles[-2].timestamp == ts[-1].timestamp and ts[-1].no_tops == 1: # condition 4 and 5
-                        print "long generic 2, date=%s, l=%s, s=%s" % (str(ticks[-1].timestamp), l, s)
+        long_tops = ticks.candles(l).tops()
+        if len(long_tops) >= 2: # pre-condition
+            if long_tops[-2].is_low and long_tops[-1].is_high: # condition 1
+                short_candles = ticks.candles(s)
+                short_tops = ticks.candles(s).tops()
+                if short_tops[-1].is_low and \
+                    short_tops[-1].low > long_tops[-2].low: # condition 2 and 3
+                    if short_candles[-2].timestamp == short_tops[-1].timestamp \
+                        and short_tops[-1].no_tops == 1: # condition 4 and 5
                         return True
         return False
-    return signal
+    return entry_long_tops_1_signal
 
 def entry_short_tops_1(l, s):
-    def signal(ticker):
+    def entry_short_tops_1_signal(ticker):
         ticks = ticker.ticks
-        tl = ticks.cs(l).tops()
-        if len(tl) >= 2: # pre-condition
-            if tl[-2].is_high and tl[-1].is_low: # condition 1
-                candles = ticks.cs(s)
-                ts = ticks.cs(s).tops()
-                if ts[-1].is_high and ts[-1].high < tl[-2].high: # condition 2 and 3
-                    if candles[-2].timestamp == ts[-1].timestamp and ts[-1].no_tops == 1: # condition 4 and 5
-                        print "short generic 2, timestamp=%s, l=%s, s=%s" % (str(ticks[-1].timestamp), l, s)
+        long_tops = ticks.candles(l).tops()
+        if len(long_tops) >= 2: # pre-condition
+            if long_tops[-2].is_high and long_tops[-1].is_low: # condition 1
+                short_candles = ticks.candles(s)
+                short_tops = ticks.candles(s).tops()
+                if short_tops[-1].is_high and \
+                    short_tops[-1].high < long_tops[-2].high: # condition 2 and 3
+                    if short_candles[-2].timestamp == short_tops[-1].timestamp \
+                        and short_tops[-1].no_tops == 1: # condition 4 and 5
                         return True
         return False
-    return signal
+    return entry_short_tops_1_signal
 
 # random signals for testing the API
 def entry_long_random(ticker):
