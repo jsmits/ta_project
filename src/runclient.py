@@ -1,5 +1,5 @@
 import logger # configure the loggers
-from strategies import strategy_1, strategy_NS, strategy_list
+from strategies import strategy_list
 
 if __name__ == '__main__':
     
