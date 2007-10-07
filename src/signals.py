@@ -59,8 +59,8 @@ available_signals = [entry_long_tops_1, entry_short_tops_1]
 
 def tops_signal_generator(long_short_signal_pair):
     """generates long and short signals"""
-    l_options = [60, 30, 20, 15, 10, 5, 4, 3]
-    s_options = [20, 15, 10, 5, 4, 3, 2, 1]
+    l_options = [60, 30, 20, 15, 10, 5]
+    s_options = [20, 15, 10, 5, 3, 2, 1]
     long_signals = []
     short_signals = []
     for generator in long_short_signal_pair:
