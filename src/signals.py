@@ -15,38 +15,73 @@ def ma_co(candles, ma_type, params, direction):
                 if candles[-1][4] < ma[-1]:
                     return True
             return False
-        
-def entry_long_tops_1(l, s):
-    def entry_long_tops_1_signal(ticker):
-        ticks = ticker.ticks
-        long_tops = ticks.candles(l).tops()
-        if len(long_tops) >= 2: # pre-condition
-            if long_tops[-2].is_low and long_tops[-1].is_high: # condition 1
-                short_candles = ticks.candles(s)
-                short_tops = ticks.candles(s).tops()
-                if short_tops[-1].is_low and \
-                    short_tops[-1].low > long_tops[-2].low: # condition 2 and 3
-                    if short_candles[-2].timestamp == short_tops[-1].timestamp \
-                        and short_tops[-1].no_tops == 1: # condition 4 and 5
-                        return True
-        return False
-    return entry_long_tops_1_signal
 
-def entry_short_tops_1(l, s):
-    def entry_short_tops_1_signal(ticker):
+# mother of all long tops signals
+def long_tops_signal_generator(period, low_top, high_top, stop_param, limit_param):
+    def entry_long_tops_signal(ticker):
+        """low top - high top - 'virtual' HL - tick above high top's high"""
         ticks = ticker.ticks
-        long_tops = ticks.candles(l).tops()
-        if len(long_tops) >= 2: # pre-condition
-            if long_tops[-2].is_high and long_tops[-1].is_low: # condition 1
-                short_candles = ticks.candles(s)
-                short_tops = ticks.candles(s).tops()
-                if short_tops[-1].is_high and \
-                    short_tops[-1].high < long_tops[-2].high: # condition 2 and 3
-                    if short_candles[-2].timestamp == short_tops[-1].timestamp \
-                        and short_tops[-1].no_tops == 1: # condition 4 and 5
-                        return True
+        candles = ticks.candles(period)
+        tops = candles.tops()
+        if len(tops) >= 2: # pre-condition
+            if getattr(tops[-2], "is_%s" % low_top) and \
+               getattr(tops[-1], "is_%s" % high_top): # condition 1
+                # check if the previous candle is a virtual HL
+                prev_candle = candles[-1]
+                if prev_candle.low > tops[-2].candle.low and \
+                   prev_candle.high < tops[-1].candle.high: # condition 2
+                    current_ticks = candles.current_ticks
+                    if current_ticks:
+                        for timestamp, value in current_ticks[:-1]:
+                            if value <= prev_candle.low or \
+                               value > tops[-1].candle.high: # exclusion condition
+                                return False
+                        current_tick = current_ticks[-1][1] 
+                        if current_tick > tops[-1].candle.high: # condition 3
+                            target = current_tick
+                            if stop_param and limit_param: # predefined bracket
+                                stop = target - stop_param * ticker.increment
+                                limit = target + limit_param * ticker.increment
+                            else: # dynamic bracket
+                                stop = prev_candle.low
+                                limit = target + (target - prev_candle.low)
+                            return target, stop, limit
         return False
-    return entry_short_tops_1_signal
+    return entry_long_tops_signal
+
+# mother of all short tops signals
+def short_tops_signal_generator(period, high_top, low_top, stop_param, limit_param):
+    def entry_short_tops_signal(ticker):
+        """high top - low top - 'virtual' LH - tick under low top's low"""
+        ticks = ticker.ticks
+        candles = ticks.candles(period)
+        tops = candles.tops()
+        if len(tops) >= 2: # pre-condition
+            if tops[-2].is_HH and tops[-1].is_HL: # condition 1
+                # check if the previous candle is a potential LH
+                prev_candle = candles[-1]
+                if prev_candle.high < tops[-2].candle.high and \
+                   prev_candle.low > tops[-1].candle.low: # condition 2
+                    current_ticks = candles.current_ticks
+                    if current_ticks:
+                        for timestamp, value in current_ticks[:-1]:
+                            if value >= prev_candle.high or \
+                               value < tops[-1].candle.low: # exclusion condition
+                                return False
+                        current_tick = current_ticks[-1][1] 
+                        if current_tick < tops[-1].candle.low:
+                            target = current_tick
+                            if stop_param and limit_param: # predefined bracket
+                                stop = target + stop_param * ticker.increment
+                                limit = target - limit_param * ticker.increment
+                            else: # dynamic bracket
+                                stop = prev_candle.high
+                                limit = target - (prev_candle.high - target)
+                            return target, stop, limit
+        return False
+    return entry_short_tops_signal
+
+
 
 # random signals for testing the API
 def entry_long_random(ticker):
@@ -57,23 +92,11 @@ def entry_short_random(ticker):
     if r.random() > 0.95:
         return True
 
-available_signals = [entry_long_tops_1, entry_short_tops_1]
-
-def l_s_options_generator(l_options=[60, 30, 20, 15, 10, 5],
-                          s_options=[20, 15, 10, 5, 3, 2, 1]):
-    args = []
-    for lo in l_options:
-        for so in s_options:
-            if so * 2 < lo:
-                args.append((lo, so))
-    return args
-
-def signal_generator(long_generator, short_generator, args=[]):
-    """generates long and short signal genrator based on the given args"""
-    generator_args = args or l_s_options_generator()
-    long_signals = [(long_generator, args) for args in generator_args]
-    short_signals = [(short_generator, args) for args in generator_args]
-    return long_signals, short_signals
+# possible params for tops signal generators
+low_tops = ["LL", "HL", "low"]
+high_tops = ["LH", "HH", "high"]
+periods = [15, 10, 5, 4, 3, 2]
+bracket_params = [0, 2, 3, 4, 5, 6, 7, 8]
           
 if __name__ == '__main__':
     long_signal_generators, short_signal_generators = signal_generator(entry_long_tops_1, entry_short_tops_1)

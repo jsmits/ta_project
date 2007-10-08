@@ -23,7 +23,7 @@ class CandleWrapper(object):
         elif i == 4: return self.close
         else:
             raise IndexError, "index out of range: %s" % i
-        
+
     def __str__(self):
         date = datetime.fromtimestamp(self.timestamp)
         return "%s: %s, %s, %s, %s" % (date, self.open, self.high, self.low, self.close)
@@ -33,12 +33,14 @@ class TickCandles(list):
     def __init__(self, period):
         self.period = period
         self.current = None # current virtual candle
+        self.current_ticks = []
                 
     def process_tick(self, tick):
         timestamp, value = tick['timestamp'], tick['value'] 
         self.current = self.current or [tick_boundaries(timestamp, self.period), 
             value, value, value, value]
         if timestamp <= self.current[0]:
+            self.current_ticks.append((timestamp, value))
             self.current[4] = value # reset close
             if value > self.current[2]: # compare with high
                 self.current[2] = value # update high
@@ -46,6 +48,7 @@ class TickCandles(list):
                 self.current[3] = value # update low
         else:
             self.append(tuple(self.current))
+            self.current_ticks = [] # reset the current_ticks list
             # TODO: think about this roll-over
             if (datetime.utcfromtimestamp(timestamp).date() > 
                 datetime.utcfromtimestamp(self.current[0]).date()):
@@ -76,6 +79,10 @@ class TickCandles(list):
         
     def __getitem__(self, i):
         return CandleWrapper(self, i) 
+    
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
         
 class TickWrapper(object):
     """wrap a tick so that the date can be accessed by tick.date and
@@ -83,7 +90,7 @@ class TickWrapper(object):
     """
     def __init__(self, ticks, index):
         ticks = ticks[:] # make a copy otherwise it becomes recursive
-        self.id = ticks[index]['id']
+        self.id = ticks[index].get('id') # optional
         self.timestamp = ticks[index]['timestamp']
         self.value = ticks[index]['value']
     
