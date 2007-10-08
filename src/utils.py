@@ -60,6 +60,18 @@ def random_weekday(start, end):
     if weekdays: 
         return random.choice(weekdays)
     
+def random_weekdays(start, end, number=3):
+    weekdays = []
+    tries = 0
+    while len(weekdays) != number:
+        weekday = random_weekday(start, end)
+        if weekday not in weekdays: 
+            weekdays.append(weekday)
+        tries += 1
+        if tries == 10000: 
+            break
+    return weekdays
+    
 if __name__ == '__main__':
     obj = {'id': 1, 'timestamp': 11425252551.982872, 'value': 1455.25,
            'a' : {'id': 1, 'timestamp': 11425252551.982872, 'value': 1455.25},
