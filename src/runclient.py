@@ -1,5 +1,5 @@
 import logger # configure the loggers
-from strategies import strategy
+from signals import SignalWrapper, entry_long_random, entry_short_random
 
 if __name__ == '__main__':
     
@@ -8,6 +8,7 @@ if __name__ == '__main__':
     from message_service import MessagingGateway
     from ticker import Ticker
     
+    strategy = [SignalWrapper(entry_long_random), SignalWrapper(entry_short_random)]
     definitions = [
         {'symbol': "ES",
         'secType': "FUT",
