@@ -1,21 +1,5 @@
 import random
-r = random.Random()
 
-def ma_co(candles, ma_type, params, direction):
-    "MA cross-over signal"
-    if len(candles) > params: # pre-condition
-        ma = getattr(candles, ma_type)(params)
-        if direction == 1: # up
-            if candles[-2][4] < ma[-2]: # cascading conditions
-                if candles[-1][4] > ma[-1]:
-                    return True
-            return False
-        if direction == -1: # down
-            if candles[-2][4] > ma[-2]: # cascading conditions
-                if candles[-1][4] < ma[-1]:
-                    return True
-            return False
-        
 class SignalWrapper(object):
     def __init__(self, signal):
         self.signal = signal
@@ -25,7 +9,7 @@ class SignalWrapper(object):
         
     def check_entry(self, ticker):
         resp = self.signal(ticker)
-        # response can be None, False, or a target with stop and limit tuple
+        # response can be None, False, or a tuple with target, stop and limit
         if resp:
             # get the response params
             self.target, self.stop, self.limit = resp 
@@ -44,7 +28,8 @@ class SignalWrapper(object):
         return "SignalWrapper(%s)" % self.signal.__name__
 
 # mother of all long tops signals
-def long_tops_signal_generator(period, low_top, high_top, stop_param, limit_param):
+def long_tops_signal_generator(period, low_top, high_top, stop_param, 
+                               limit_param):
     def entry_long_tops_signal(ticker):
         """low top - high top - 'virtual' HL - tick above high top's high"""
         ticks = ticker.ticks
@@ -61,7 +46,7 @@ def long_tops_signal_generator(period, low_top, high_top, stop_param, limit_para
                     if current_ticks:
                         for timestamp, value in current_ticks[:-1]:
                             if value <= prev_candle.low or \
-                               value > tops[-1].candle.high: # exclusion condition
+                               value > tops[-1].candle.high: # exclusion
                                 return False
                         current_tick = current_ticks[-1][1] 
                         if current_tick > tops[-1].candle.high: # condition 3
@@ -77,7 +62,8 @@ def long_tops_signal_generator(period, low_top, high_top, stop_param, limit_para
     return entry_long_tops_signal
 
 # mother of all short tops signals
-def short_tops_signal_generator(period, high_top, low_top, stop_param, limit_param):
+def short_tops_signal_generator(period, high_top, low_top, stop_param, 
+                                limit_param):
     def entry_short_tops_signal(ticker):
         """high top - low top - 'virtual' LH - tick under low top's low"""
         ticks = ticker.ticks
@@ -93,7 +79,7 @@ def short_tops_signal_generator(period, high_top, low_top, stop_param, limit_par
                     if current_ticks:
                         for timestamp, value in current_ticks[:-1]:
                             if value >= prev_candle.high or \
-                               value < tops[-1].candle.low: # exclusion condition
+                               value < tops[-1].candle.low: # exclusion
                                 return False
                         current_tick = current_ticks[-1][1] 
                         if current_tick < tops[-1].candle.low:
@@ -110,14 +96,14 @@ def short_tops_signal_generator(period, high_top, low_top, stop_param, limit_par
 
 # random signals for testing the API
 def entry_long_random(ticker):
-    if r.random() > 0.95:
+    if random.random() > 0.95:
         target = ticker.ticks[-1].value
         stop = target - 1.00
         limit = target + 1.00
         return target, stop, limit
     
 def entry_short_random(ticker):
-    if r.random() > 0.95:
+    if random.random() > 0.95:
         target = ticker.ticks[-1].value
         stop = target + 1.00
         limit = target - 1.00
@@ -149,8 +135,8 @@ def tops_signal_params_generator(periods=[15, 10, 5, 4, 3, 2],
             for stop_param, limit_param in params:
                 args.append(("long_tops", period, low_top, high_top, stop_param, 
                              limit_param))
-                args.append(("short_tops", period, high_top, low_top, stop_param, 
-                             limit_param))
+                args.append(("short_tops", period, high_top, low_top, 
+                             stop_param, limit_param))
     return args
 
 def random_strategies_generator(args, output=10000):
@@ -162,7 +148,7 @@ def random_strategies_generator(args, output=10000):
         for i in range(nr_of_signals):
             while True:
                 s = random.choice(args)
-                if s not in strategy:
+                if s[:4] not in [strat[:4] for strat in strategy]:
                     strategy.append(s)
                     break
         if strategy not in strategies:
@@ -175,7 +161,6 @@ def random_strategies_generator(args, output=10000):
     return strategies
 
 def create_strategy_map(strategy_args):
-    from strategies import SignalWrapper
     map = {}
     id = 1
     for args in strategy_args:
