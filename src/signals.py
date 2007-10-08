@@ -81,23 +81,90 @@ def short_tops_signal_generator(period, high_top, low_top, stop_param, limit_par
         return False
     return entry_short_tops_signal
 
-
-
 # random signals for testing the API
 def entry_long_random(ticker):
     if r.random() > 0.95:
-        return True
+        target = ticker.ticks[-1].value
+        stop = target - 1.00
+        limit = target + 1.00
+        return target, stop, limit
     
 def entry_short_random(ticker):
     if r.random() > 0.95:
-        return True
+        target = ticker.ticks[-1].value
+        stop = target + 1.00
+        limit = target - 1.00
+        return target, stop, limit
+    
+def tops_signal_params_generator(periods=[15, 10, 5, 4, 3, 2], 
+        bracket_params=[None,None,None,None,None,None,None,None,2,3,4,5,6,7,8]):
+    low_tops = ["LL", "HL", "low"]
+    high_tops = ["LH", "HH", "high"]
+    
+    tops = []
+    for h in high_tops:
+        for l in low_tops:
+            tops.append((l, h))
+    
+    params = []
+    for stop_param in bracket_params:
+        if not stop_param:
+            params.append((None, None))
+            continue
+        for limit_param in bracket_params:
+            if not limit_param:
+                continue
+            params.append((stop_param, limit_param))
+            
+    args = []
+    for period in periods:
+        for low_top, high_top in tops:
+            for stop_param, limit_param in params:
+                args.append(("long_tops", period, low_top, high_top, stop_param, 
+                             limit_param))
+                args.append(("short_tops", period, high_top, low_top, stop_param, 
+                             limit_param))
+    return args
 
-# possible params for tops signal generators
-low_tops = ["LL", "HL", "low"]
-high_tops = ["LH", "HH", "high"]
-periods = [15, 10, 5, 4, 3, 2]
-bracket_params = [0, 2, 3, 4, 5, 6, 7, 8]
+def random_strategies_generator(args, output=10000):
+    strategies = []
+    tries = 0
+    while len(strategies) != output:
+        nr_of_signals = random.choice(range(1,11))
+        strategy = []
+        for i in range(nr_of_signals):
+            while True:
+                s = random.choice(args)
+                if s not in strategy:
+                    strategy.append(s)
+                    break
+        if strategy not in strategies:
+            strategies.append(strategy)
+        tries += 1
+        if tries > 1000000:
+            print "too many tries (%s): returning %s strategies" % (tries, 
+                                                        len(strategies))
+            break
+    return strategies
+
+def create_strategy_map(strategy_args):
+    from strategies import SignalWrapper
+    map = {}
+    id = 1
+    for args in strategy_args:
+        map[id] = {}
+        map[id]['args'] = args
+        strategy = []
+        for arg in args:
+            generator = globals().get("%s_signal_generator" % arg[0])
+            signal = generator(*arg[1:])
+            strategy.append(SignalWrapper(signal))
+        map[id]['strategy'] = strategy
+        id += 1
+    return map
           
 if __name__ == '__main__':
-    long_signal_generators, short_signal_generators = signal_generator(entry_long_tops_1, entry_short_tops_1)
     
+    tops_signal_args = tops_signal_params_generator()
+    random_strategy_args = random_strategies_generator(tops_signal_args)
+    strategy_map = create_strategy_map(random_strategy_args)

@@ -1,6 +1,6 @@
 from signals import entry_long_random, entry_short_random
 
-class Strategy(object):
+class SignalWrapper(object):
     def __init__(self, signal):
         self.signal = signal
         self.target = None
@@ -20,8 +20,14 @@ class Strategy(object):
         if signal_name.startswith('entry_long'): action = "SELL"
         elif signal_name.startswith('entry_short'): action = "BUY"
         return action, self.stop, self.limit
+    
+    def __str__(self):
+        return self.signal.__name__
+    
+    def __repr__(self):
+        return "SignalWrapper(%s)" % self.signal.__name__
         
-strategy_list = [Strategy(entry_long_random), Strategy(entry_short_random)]
+strategy = [SignalWrapper(entry_long_random), SignalWrapper(entry_short_random)]
         
 
                 
