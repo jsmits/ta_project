@@ -139,11 +139,11 @@ def tops_signal_params_generator(periods=[15, 10, 5, 4, 3, 2],
                              stop_param, limit_param))
     return args
 
-def random_strategies_generator(args, output=10000):
+def random_strategies_generator(args, min=6, max=12, output=10000):
     strategies = []
     tries = 0
     while len(strategies) != output:
-        nr_of_signals = random.choice(range(1,11))
+        nr_of_signals = random.choice(range(min, max))
         strategy = []
         for i in range(nr_of_signals):
             while True:
@@ -165,15 +165,17 @@ def create_strategy_map(strategy_args):
     id = 1
     for args in strategy_args:
         map[id] = {}
-        map[id]['args'] = args
-        strategy = []
-        for arg in args:
-            generator = globals().get("%s_signal_generator" % arg[0])
-            signal = generator(*arg[1:])
-            strategy.append(SignalWrapper(signal))
-        map[id]['strategy'] = strategy
+        map[id]['params'] = args
         id += 1
     return map
+
+def strategy_builder(args):
+    strategy = []
+    for arg in args:
+        generator = globals().get("%s_signal_generator" % arg[0])
+        signal = generator(*arg[1:])
+        strategy.append(SignalWrapper(signal))
+    return strategy
           
 if __name__ == '__main__':
     
