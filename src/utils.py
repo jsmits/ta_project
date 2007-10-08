@@ -1,7 +1,8 @@
 import pickle as pickle # pickle does a faster encoding than cPickle for jython !!!
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
+import random
 
 try:
     import simplejson
@@ -45,6 +46,20 @@ def tick_boundaries(timestamp, period):
     end_timestamp = start_timestamp + (period * 60)
     return end_timestamp
 
+def weekdays_generator(start, end):
+    weekdays = []
+    current = start
+    while current <= end:
+        current = current + timedelta(days=1)
+        if current.isoweekday() in [1,2,3,4,5]:  
+            weekdays.append(current)
+    return weekdays
+
+def random_weekday(start, end):
+    weekdays = weekdays_generator(start, end)
+    if weekdays: 
+        return random.choice(weekdays)
+    
 if __name__ == '__main__':
     obj = {'id': 1, 'timestamp': 11425252551.982872, 'value': 1455.25,
            'a' : {'id': 1, 'timestamp': 11425252551.982872, 'value': 1455.25},

@@ -98,8 +98,8 @@ if __name__ == '__main__':
     strategy_map = create_strategy_map(random_strategy_args)
     
     # setup
-    start = datetime(2003, 6, 9)
-    end = datetime(2003, 6, 11)
+    start = datetime(2003, 6, 11)
+    end = datetime(2003, 6, 13)
     ticks = tick_list('ES', start, end)
     
     tt0 = time.time()
@@ -111,6 +111,7 @@ if __name__ == '__main__':
         t1 = time.time()
         map['orders'] = orders
         map['simulation_time'] = t1 - t0
+        print "tested strategy: %s" % id
     tt1 = time.time()
     print "running %s simulations took %s seconds" % (nr_of_strategies, 
                                                       repr(tt1 - tt0))
@@ -118,7 +119,8 @@ if __name__ == '__main__':
     reduced_map = {}
     for id, map in strategy_map.items():
         orders = map['orders']
-        deltas = [details['delta'] for details in orders.values()]
+        deltas = [details['delta'] for details in orders.values() 
+                  if details.get('delta')]
         negatives = [delta for delta in deltas if delta <= 0]
         positives = [delta for delta in deltas if delta > 0]
         pos_perc = None
