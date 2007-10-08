@@ -90,15 +90,15 @@ class TAEngine(stomp.ConnectionListener):
         if not order_entry: return # not for this instance
         order_entry.update(message)
         # if this is a Filled entry order -> create and send STOP/LIMIT order
-        strategy = order_entry.get('strategy')
-        if strategy and order_entry['order']['type'] == "LMT_entry" \
+        signal = order_entry.get('signal')
+        if signal and order_entry['order']['type'] == "LMT_entry" \
             and message['status'] == 'Filled' and \
             not order_entry.get("exit_handled", False):
             ticker_id = order_entry['tick'].id
             ticker = self.tickers.get(ticker_id)
             order_entry['exit_handled'] = True # to avoid doubles, sometimes 
             # a entry fill is confirmed 2 times
-            self.exit_order_request(ticker, strategy)
+            self.exit_order_request(ticker, signal)
     
     def process_account_value(self, message):
         key = message['key']
@@ -128,10 +128,10 @@ class TAEngine(stomp.ConnectionListener):
         if not position:
             order_id = self.pending_order_id(ticker_id, "LMT_entry")
             if not order_id:
-                for s in strategy:
-                    st = s.check_entry(ticker)
-                    if st: 
-                        self.limit_order_request(ticker, st)
+                for signal in strategy:
+                    processed_signal = signal.check_entry(ticker)
+                    if processed_signal: 
+                        self.limit_order_request(ticker, processed_signal)
                         break
         """
         else:
@@ -206,8 +206,8 @@ class TAEngine(stomp.ConnectionListener):
         order.update(kw)
         return order
     
-    def get_signal(self, strategy):
-        signal = strategy.signal.__name__
+    def get_signal(self, signal):
+        signal = str(signal)
         if   signal.startswith('entry_long'):  return "BUY"
         elif signal.startswith('entry_short'): return "SELL"
         else: 
@@ -245,29 +245,29 @@ class TAEngine(stomp.ConnectionListener):
         request = {'type': 'place_order', 'order': order, 'contract': contract}
         self.handle_outgoing(request)
         
-    def limit_order_request(self, ticker, strategy):
+    def limit_order_request(self, ticker, signal):
         tick = ticker.ticks[-1] # trigger tick
         contract = ticker.create_contract()
-        action = self.get_signal(strategy) # determine by strategy signal
+        action = self.get_signal(signal)
         order = self.create_order(ticker, action, "LMT_entry", 
             trigger_timestamp=tick.timestamp, limit=tick.value)
-        self.new_order_entry(ticker, order, strategy=strategy)
+        self.new_order_entry(ticker, order, signal=signal)
         request = {'type': 'place_order', 'order': order, 'contract': contract}
         self.handle_outgoing(request)
     
-    def exit_order_request(self, ticker, strategy):
+    def exit_order_request(self, ticker, signal):
         contract = ticker.create_contract()
-        action, stop, limit = strategy.exit_params() # determine by strategy signal
+        action, stop, limit = signal.exit_params()
         ocagroup = repr(time.time())
         stop_order = self.create_order(ticker, action, "STP", 
             stop=stop, ocagroup=ocagroup)
-        self.new_order_entry(ticker, stop_order, strategy=strategy)
+        self.new_order_entry(ticker, stop_order, signal=signal)
         request = {'type': 'place_order', 'order': stop_order, 
             'contract': contract}
         self.handle_outgoing(request)
         limit_order = self.create_order(ticker, action, "LMT_exit", 
             limit=limit, ocagroup=ocagroup)
-        self.new_order_entry(ticker, limit_order, strategy=strategy)
+        self.new_order_entry(ticker, limit_order, signal=signal)
         request = {'type': 'place_order', 'order': limit_order, 
             'contract': contract}
         self.handle_outgoing(request)
