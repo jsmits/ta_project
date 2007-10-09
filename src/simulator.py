@@ -1,42 +1,6 @@
 from datetime import datetime
 import time
 
-def process_fields(fields):    
-    month, day, year = fields[0].split("/")
-    hour, minute = fields[1].split(":")
-    date = datetime(int(year), int(month), int(day), int(hour), int(minute))
-    timestamp = time.mktime(date.timetuple())
-    return timestamp, float(fields[2]), float(fields[3]), float(fields[4]), \
-                                                        float(fields[5])
-                                                        
-def parse_line(line):
-    if line[-2:] == '\r\n': # always check this first => CPython newline
-        line = line[:-2]
-    if line[-1:] == '\n': # jython newline
-        line = line[:-1]
-    fields = line.split(",")
-    candle = process_fields(fields)
-    return candle
-
-def tick_list(symbol, start, end):
-    #TODO: find the right file for symbol, start and end
-    path = '../tickdata/%s/1_Min/'
-    f = open(path % symbol + 'ES_03U.TXT', 'r')
-    title_line = f.readline() # skip first line
-    ticks = []
-    for line in f.readlines():
-        candle = parse_line(line)
-        timestamp, o, h, l, c = candle
-        date = datetime.fromtimestamp(timestamp)
-        if date >= end: break
-        if date >= start:
-            ticks.append({'timestamp': timestamp-57, 'value': o})
-            ticks.append({'timestamp': timestamp-44, 'value': h})
-            ticks.append({'timestamp': timestamp-28, 'value': l})
-            ticks.append({'timestamp': timestamp- 7, 'value': c})
-    f.close()
-    return ticks
-
 def run_simulation(ticker, ticks, strategy):
     orders = {}
     order_id = 1
@@ -88,23 +52,28 @@ if __name__ == '__main__':
     
     from signals import strategy_builder, tops_signal_params_generator
     from signals import random_strategies_generator, create_strategy_map
-    
+    from tickdata import ES_ticks, SP_ticks
     from ticker import Ticker
     
     tops_signal_args = tops_signal_params_generator()
-    nr_of_strategies = 100
+    nr_of_strategies = 5
     random_strategy_args = random_strategies_generator(tops_signal_args, 
                                                        output=nr_of_strategies)
     strategy_map = create_strategy_map(random_strategy_args)
     
     # setup
-    start = datetime(2003, 6, 11)
-    end = datetime(2003, 6, 13)
-    ticks = tick_list('ES', start, end)
+    start = datetime(2003, 7, 24)
+    end = datetime(2003, 7, 26)
+    #ticks = ES_ticks(start, end)
+    
+    SP_date = datetime(2005, 11, 21)
+    print "loading and parsing tick data..."
+    ticks = SP_ticks(SP_date)
+    print "tick data loaded..."
     
     tt0 = time.time()
     for id, map in strategy_map.items():
-        t = Ticker(increment=0.25)
+        t = Ticker(increment=0.10)
         strategy = strategy_builder(map['params'])
         t0 = time.time()
         orders = run_simulation(t, ticks, strategy)
