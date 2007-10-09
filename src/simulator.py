@@ -56,7 +56,7 @@ if __name__ == '__main__':
     from ticker import Ticker
     
     tops_signal_args = tops_signal_params_generator()
-    nr_of_strategies = 5
+    nr_of_strategies = 50
     random_strategy_args = random_strategies_generator(tops_signal_args, 
                                                        output=nr_of_strategies)
     strategy_map = create_strategy_map(random_strategy_args)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     end = datetime(2003, 7, 26)
     #ticks = ES_ticks(start, end)
     
-    SP_date = datetime(2005, 11, 21)
+    SP_date = datetime(2005, 10, 27)
     print "loading and parsing tick data..."
     ticks = SP_ticks(SP_date)
     print "tick data loaded..."
