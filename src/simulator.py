@@ -1,15 +1,19 @@
 from datetime import datetime
 import time
 
-def run_simulation(ticker, ticks, strategy):
+def run_simulation(ticker, ticks, strategy, start=(8,30), end=(14,45)):
     orders = {}
     order_id = 1
     open_order = False
     first_day_date = datetime.fromtimestamp(ticks[-1]['timestamp']).date()
     for tick in ticks:
         t.ticks.append(tick)
-        tick_date = datetime.fromtimestamp(tick['timestamp']).date()
-        if tick_date == first_day_date: continue # skip historic date
+        tick_date = datetime.fromtimestamp(tick['timestamp'])
+        # if tick_date == first_day_date: continue # skip historic date
+        if tick_date.hour <= start[0] and tick_date.minute < start[1]: continue # skip historic date
+        if tick_date.hour >= end[0] and tick_date.minute > end[1]:
+            # close open orders and break 
+            continue
         tick_value = tick['value']
         if open_order:
             order = orders[order_id]
@@ -54,28 +58,35 @@ if __name__ == '__main__':
     from signals import random_strategies_generator, create_strategy_map
     from tickdata import ES_ticks, SP_ticks
     from ticker import Ticker
+    from utils import random_weekday
     
     tops_signal_args = tops_signal_params_generator()
-    nr_of_strategies = 50
+    nr_of_strategies = 1
     random_strategy_args = random_strategies_generator(tops_signal_args, 
                                                        output=nr_of_strategies)
     strategy_map = create_strategy_map(random_strategy_args)
     
     # setup
-    start = datetime(2003, 7, 24)
-    end = datetime(2003, 7, 26)
-    #ticks = ES_ticks(start, end)
+    start = datetime(2004, 1, 1)
+    end   = datetime(2007, 1, 1)
     
-    SP_date = datetime(2005, 10, 27)
-    print "loading and parsing tick data..."
-    ticks = SP_ticks(SP_date)
+    ticks = None
+    print "picking random weekday..."
+    while not ticks:
+        weekday = random_weekday(start, end)
+        print "random weekday: %s" % str(weekday)
+        ticks = ES_ticks(weekday)
+        if not ticks: print "no ticks found for: %s, trying again..." % str(weekday)
     print "tick data loaded..."
     
     tt0 = time.time()
     for id, map in strategy_map.items():
-        t = Ticker(increment=0.10)
+        t = Ticker(increment=0.25)
         strategy = strategy_builder(map['params'])
+        print "strategy build with: %s" % map['params']
         t0 = time.time()
+        # 1.00 increase is 50
+        # commission is 0.1 for roundtrip
         orders = run_simulation(t, ticks, strategy)
         t1 = time.time()
         map['orders'] = orders

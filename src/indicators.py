@@ -305,3 +305,147 @@ def tops(self):
             continue
         
     return TopsWrapper(self, output)    
+
+def ctops(self):
+    """cacheable tops indicator
+    Calculate tops
+    0 - no top 
+    1 - L; 11 - LL; 21 - EL; 31 - HL
+    2 - H; 12 - LH; 22 - EH; 32 - HH
+    """
+    # signal constants   
+    L  =  1
+    LL = 11
+    EL = 21
+    HL = 31
+    H  =  2
+    LH = 12
+    EH = 22
+    HH = 32
+    
+    output = []
+    
+    for i in range(len(self)):
+        candle = self[i]
+        high = candle[2]
+        low = candle[3]
+        
+        if i == 0: # first entry, can never be determined
+            output.append(0)
+            continue
+        
+        elif high <= self[i-1][2] and low >= self[i-1][3]: # inside bar
+            output.append(0)
+        
+        elif high > self[i-1][2] and low < self[i-1][3]: # outside bar
+            output.append(0)
+            for j in range(i-1,-1,-1):
+                if self[j][2] > high or self[j][3] < low: 
+                    # first non-inclusive bar
+                    break
+                output[j] = 0 # reset all inbetween tops
+        
+        elif high > self[i-1][2] and low >= self[i-1][3]: # upbar
+            if i == 1: # only one previous, so this must be an L
+                output[0] = L
+            elif self[i-1][2] <= self[i-2][2] and self[i-1][3] < self[i-2][3]:
+                # previous low bar
+                hm, lm = None, None
+                for j in range(i-1,-1,-1): # look back for pre-previous low
+                    # remember high low range, because if an outer is detected
+                    # before the low looping should be stopped and the next 
+                    # candle evaluated
+                    outer_break = False
+                    if not hm or not lm:
+                        hm, lm = self[j][2], self[j][3]
+                        continue
+                    ## this is for outer detection, a difficult but important
+                    # problem to tackle 
+                    if self[j][2] >= hm and self[j][3] <= lm: # outer detected
+                        # now it's important if the current candle is higher or
+                        # lower than the outer, the outer should be evaluated for
+                        # a top
+                        if self[i][2] > self[j][2] or self[i][3] < self[j][3]:
+                            for k in range(j-1,-1,-1):
+                                outer_break_2 = False
+                                if output[k] % 2 == 1: # low, no problem
+                                    outer_break = True
+                                    break # and break outer !!!!
+                                elif output[k] != 0 and output[k] % 2 == 0: # high
+                                    # now the outer is a low
+                                    # check what kind of low
+                                    # look back further for the next low
+                                    for l in range(k-1,-1,-1): 
+                                        if output[l] % 2 == 1: # low
+                                            if   self[j][3]  < self[l][3]: output[j] = LL
+                                            elif self[j][3]  > self[l][3]: output[j] = HL
+                                            elif self[j][3] == self[l][3]: output[j] = EL 
+                                            else: output[j] = L
+                                            outer_break = True
+                                            outer_break_2 = True
+                                            break
+                                if outer_break_2: break
+                    if outer_break: break
+                    ## end of outer detection block
+                    if output[j] % 2 == 1: # low
+                        if   self[i-1][3]  < self[j][3]: output[i-1] = LL
+                        elif self[i-1][3]  > self[j][3]: output[i-1] = HL
+                        elif self[i-1][3] == self[j][3]: output[i-1] = EL 
+                        else: output[i-1] = L
+                        break
+                    if self[j][2] > hm: hm = self[j][2]
+                    if self[j][3] < lm: lm = self[j][3]
+                    
+        elif high <= self[i-1][2] and low < self[i-1][3]: # downbar
+            if i == 1: # only one previous, so this must be an H
+                output[0] = H
+            elif self[i-1][2] > self[i-2][2] and self[i-1][3] >= self[i-2][3]:
+                # previous high bar
+                hm, lm = None, None
+                for j in range(i-1,-1,-1): # look back for pre-previous high
+                    # remember high low range, because if an outer is detected
+                    # before the low looping should be stopped and the next 
+                    # candle evaluated
+                    outer_break = False
+                    if not hm or not lm:
+                        hm, lm = self[j][2], self[j][3]
+                        continue
+                    ## this is for outer detection, a difficult but important
+                    # problem to tackle 
+                    if self[j][2] >= hm and self[j][3] <= lm: # outer detected
+                        # now it's important if the current candle is higher or
+                        # lower than the outer, the outer should be evaluated for
+                        # a top
+                        if self[i][2] > self[j][2] or self[i][3] < self[j][3]:
+                            for k in range(j-1,-1,-1):
+                                outer_break_2 = False
+                                if output[k] != 0 and output[k] % 2 == 0:
+                                    # high, no problem
+                                    outer_break = True
+                                    break # and break outer !!!!
+                                elif output[k] % 2 == 1: # low
+                                    # now the outer is a high
+                                    # check what kind of high
+                                    # look back further for the next high
+                                    for l in range(k-1,-1,-1): 
+                                        if output[l] != 0 and output[l] % 2 == 0: # high
+                                            if   self[j][2]  < self[l][2]: output[j] = LH
+                                            elif self[j][2]  > self[l][2]: output[j] = HH
+                                            elif self[j][2] == self[l][2]: output[j] = EH 
+                                            else: output[j] = H
+                                            outer_break = True
+                                            outer_break_2 = True
+                                            break
+                                if outer_break_2: break
+                    if outer_break: break
+                    ## end of outer detection block
+                    if output[j] != 0 and output[j] % 2 == 0: # high
+                        if   self[i-1][2]  < self[j][2]: output[i-1] = LH
+                        elif self[i-1][2]  > self[j][2]: output[i-1] = HH
+                        elif self[i-1][2] == self[j][2]: output[i-1] = EH 
+                        else: output[i-1] = H
+                        break
+                    if self[j][2] > hm: hm = self[j][2]
+                    if self[j][3] < lm: lm = self[j][3]
+        
+    return TopsWrapper(self, output)    

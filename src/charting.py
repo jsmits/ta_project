@@ -25,45 +25,6 @@ def date2num(dt):
         d += a
     return d
 
-from datetime import datetime, timedelta
-import time
-
-def process_fields(fields):    
-    month, day, year = fields[0].split("/")
-    hour, minute = fields[1].split(":")
-    date = datetime(int(year), int(month), int(day), int(hour), int(minute))
-    timestamp = time.mktime(date.timetuple())
-    return timestamp, float(fields[2]), float(fields[3]), float(fields[4]), \
-                                                        float(fields[5])
-                                                        
-def parse_line(line):
-    if line[-2:] == '\r\n': # always check this first => CPython newline
-        line = line[:-2]
-    if line[-1:] == '\n': # jython newline
-        line = line[:-1]
-    fields = line.split(",")
-    candle = process_fields(fields)
-    return candle
-
-def tick_list(symbol, start, end):
-    #TODO: find the right file for symbol, start and end
-    path = '../tickdata/%s/1_Min/'
-    f = open(path % symbol + 'ES_03U.TXT', 'r')
-    title_line = f.readline() # skip first line
-    ticks = []
-    for line in f.readlines():
-        candle = parse_line(line)
-        timestamp, o, h, l, c = candle
-        date = datetime.fromtimestamp(timestamp)
-        if date >= end: break
-        if date >= start:
-            ticks.append({'timestamp': timestamp-57, 'value': o})
-            ticks.append({'timestamp': timestamp-44, 'value': h})
-            ticks.append({'timestamp': timestamp-28, 'value': l})
-            ticks.append({'timestamp': timestamp- 7, 'value': c})
-    f.close()
-    return ticks
-
 def make_chart(candles, tops): # data should be candles, tops are calculated via the candles
     
     labels = []
@@ -133,6 +94,7 @@ def make_chart(candles, tops): # data should be candles, tops are calculated via
     return c
     
 def main(lcs, scs):
+    import time
     stamp = int(time.time())
     c = make_chart(lcs, lcs.tops().tops)
     filename = "../charts/hloc_%s_long.png" % stamp
@@ -158,10 +120,15 @@ def main(lcs, scs):
 if __name__ == '__main__':
     
     from ticker import Ticker
+    from datetime import datetime
+    from tickdata import SP_ticks
     
     start = datetime(2003, 6, 9)
     end = datetime(2003, 6, 11)
-    ticks = tick_list('ES', start, end)
+    #ticks = tick_list('ES', start, end)
+    
+    date = datetime(2000, 8, 11)
+    ticks = SP_ticks(date, hist=0)
     
     t = Ticker()
     for tick in ticks:
