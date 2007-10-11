@@ -306,9 +306,110 @@ def tops(self):
         
     return TopsWrapper(self, output)    
 
-def ctops(self):
-    """cacheable tops indicator
-    Calculate tops
+class Tops(list):
+    
+    def __init__(self):
+        self.mark = 0, 0 # temporary tops holder
+        self.ph, self.pl = [], [] # previous high and low list
+        self.candles = []
+        
+    def process_candle(self, candle):
+        
+        L = 1; LL = 11; EL = 21; HL = 31
+        H = 2; LH = 12; EH = 22; HH = 32
+        
+        ph, pl = self.ph, self.pl
+        high = candle[2]
+        low  = candle[3]
+        cs = self.candles
+        cs.append(candle)
+        
+        if len(self) == 0: # first entry, can never be determined
+            self.append(0)
+        
+        elif high <= cs[self.mark[0]][2] and low >= cs[self.mark[0]][3]: # inside bar
+            self.append(0)
+        
+        elif high > cs[self.mark[0]][2] and low < cs[self.mark[0]][3]: # outside bar
+            if ph == [] and pl == []:
+                self.append(0)
+                self.mark = len(self)-1, 0
+            else:
+                self.append(0) # added new code line 17-7-2006 !!!
+                self[self.mark[0]] = 0
+                for j in reversed(range(len(self)-1)):
+                    if cs[j][2] > high or cs[j][3] < low: 
+                        # first non-inclusive bar
+                        break
+                # checking for inbetween tops
+                count = 0
+                for k in range(j+1, len(self)-1): 
+                    if self[k] != 0: # top found
+                        count += 1
+                        if self[k] in [L, LL, EL, HL]: 
+                            pl.remove(k) # removing top indexes from list
+                        if self[k] in [H, LH, EH, HH]: 
+                            ph.remove(k) # idem
+                        self[k] = 0 # reset top
+                if count > 0:
+                    if len(pl) and len(ph):
+                        if (pl[-1] > ph[-1]): # if true, low is most recent
+                            self.mark = len(self)-1, 2
+                        elif (ph[-1] > pl[-1]): # high is most recent
+                            self.mark = len(self)-1, 1
+                    elif len(pl) and not len(ph):
+                        self.mark = len(self)-1, 2
+                    elif len(ph) and not len(pl):
+                        self.mark = len(self)-1, 1
+                    elif not len(pl) and not len(ph):
+                        # current outside bar has become indifferent
+                        self.mark = len(self)-1, 0 
+                if count == 0:
+                    # set same signal to current outside bar
+                    self.mark = len(self)-1, self.mark[1] 
+        
+        elif high > cs[self.mark[0]][2] and low >= cs[self.mark[0]][3]: # upbar
+            if self.mark[1]  < 2: # upbar with previous indifferent or low mark
+                if pl == []: 
+                    self[self.mark[0]] = L # L
+                else:
+                    if cs[self.mark[0]][3] < cs[pl[-1]][3]: 
+                        self[self.mark[0]] = LL # LL
+                    elif cs[self.mark[0]][3] == cs[pl[-1]][3]: 
+                        self[self.mark[0]] = EL # EL
+                    elif cs[self.mark[0]][3] > cs[pl[-1]][3]: 
+                        self[self.mark[0]] = HL # HL
+                pl.append(self.mark[0])
+                self.mark = len(self), 2
+                self.append(0)
+            elif self.mark[1] == 2: # upbar with previous high self.mark
+                self[self.mark[0]] = 0 # reset previous self.mark
+                self.mark = len(self), 2
+                self.append(0)
+        
+        elif high <= cs[self.mark[0]][2] and low < cs[self.mark[0]][3]: # downbar
+            if self.mark[1] != 1: # downbar with previous indifferent or high mark
+                if ph == []: 
+                    self[self.mark[0]] = H # H
+                else:
+                    if cs[self.mark[0]][2] < cs[ph[-1]][2]: 
+                        self[self.mark[0]] = LH # LH
+                    elif cs[self.mark[0]][2] == cs[ph[-1]][2]: 
+                        self[self.mark[0]] = EH # EH
+                    elif cs[self.mark[0]][2]  > cs[ph[-1]][2]: 
+                        self[self.mark[0]] = HH # HH
+                ph.append(self.mark[0])
+                self.mark = len(self), 1
+                self.append(0)
+            elif self.mark[1] == 1: # downbar with previous low mark
+                self[self.mark[0]] = 0 # reset previous mark
+                self.mark = len(self), 1
+                self.append(0)
+                
+        return TopsWrapper(self.candles, self)    
+
+def ntops(self):
+    """Calculate tops, clean up
     0 - no top 
     1 - L; 11 - LL; 21 - EL; 31 - HL
     2 - H; 12 - LH; 22 - EH; 32 - HH
@@ -324,6 +425,8 @@ def ctops(self):
     HH = 32
     
     output = []
+    mark = 0, 0
+    ph, pl = [], [] # previous high and low list
     
     for i in range(len(self)):
         candle = self[i]
@@ -334,118 +437,88 @@ def ctops(self):
             output.append(0)
             continue
         
-        elif high <= self[i-1][2] and low >= self[i-1][3]: # inside bar
+        if high <= self[mark[0]][2] and low >= self[mark[0]][3]: # inside bar
             output.append(0)
+            continue
         
-        elif high > self[i-1][2] and low < self[i-1][3]: # outside bar
-            output.append(0)
-            for j in range(i-1,-1,-1):
-                if self[j][2] > high or self[j][3] < low: 
-                    # first non-inclusive bar
-                    break
-                output[j] = 0 # reset all inbetween tops
-        
-        elif high > self[i-1][2] and low >= self[i-1][3]: # upbar
-            if i == 1: # only one previous, so this must be an L
-                output[0] = L
-            elif self[i-1][2] <= self[i-2][2] and self[i-1][3] < self[i-2][3]:
-                # previous low bar
-                hm, lm = None, None
-                for j in range(i-1,-1,-1): # look back for pre-previous low
-                    # remember high low range, because if an outer is detected
-                    # before the low looping should be stopped and the next 
-                    # candle evaluated
-                    outer_break = False
-                    if not hm or not lm:
-                        hm, lm = self[j][2], self[j][3]
-                        continue
-                    ## this is for outer detection, a difficult but important
-                    # problem to tackle 
-                    if self[j][2] >= hm and self[j][3] <= lm: # outer detected
-                        # now it's important if the current candle is higher or
-                        # lower than the outer, the outer should be evaluated for
-                        # a top
-                        if self[i][2] > self[j][2] or self[i][3] < self[j][3]:
-                            for k in range(j-1,-1,-1):
-                                outer_break_2 = False
-                                if output[k] % 2 == 1: # low, no problem
-                                    outer_break = True
-                                    break # and break outer !!!!
-                                elif output[k] != 0 and output[k] % 2 == 0: # high
-                                    # now the outer is a low
-                                    # check what kind of low
-                                    # look back further for the next low
-                                    for l in range(k-1,-1,-1): 
-                                        if output[l] % 2 == 1: # low
-                                            if   self[j][3]  < self[l][3]: output[j] = LL
-                                            elif self[j][3]  > self[l][3]: output[j] = HL
-                                            elif self[j][3] == self[l][3]: output[j] = EL 
-                                            else: output[j] = L
-                                            outer_break = True
-                                            outer_break_2 = True
-                                            break
-                                if outer_break_2: break
-                    if outer_break: break
-                    ## end of outer detection block
-                    if output[j] % 2 == 1: # low
-                        if   self[i-1][3]  < self[j][3]: output[i-1] = LL
-                        elif self[i-1][3]  > self[j][3]: output[i-1] = HL
-                        elif self[i-1][3] == self[j][3]: output[i-1] = EL 
-                        else: output[i-1] = L
+        if high > self[mark[0]][2] and low < self[mark[0]][3]: # outside bar
+            if ph == [] and pl == []:
+                output.append(0)
+                mark = len(output)-1, 0
+            else:
+                output.append(0) # added new code line 17-7-2006 !!!
+                output[mark[0]] = 0
+                for j in reversed(range(len(output)-1)):
+                    if self[j][2] > high or self[j][3] < low: 
+                        # first non-inclusive bar
                         break
-                    if self[j][2] > hm: hm = self[j][2]
-                    if self[j][3] < lm: lm = self[j][3]
-                    
-        elif high <= self[i-1][2] and low < self[i-1][3]: # downbar
-            if i == 1: # only one previous, so this must be an H
-                output[0] = H
-            elif self[i-1][2] > self[i-2][2] and self[i-1][3] >= self[i-2][3]:
-                # previous high bar
-                hm, lm = None, None
-                for j in range(i-1,-1,-1): # look back for pre-previous high
-                    # remember high low range, because if an outer is detected
-                    # before the low looping should be stopped and the next 
-                    # candle evaluated
-                    outer_break = False
-                    if not hm or not lm:
-                        hm, lm = self[j][2], self[j][3]
-                        continue
-                    ## this is for outer detection, a difficult but important
-                    # problem to tackle 
-                    if self[j][2] >= hm and self[j][3] <= lm: # outer detected
-                        # now it's important if the current candle is higher or
-                        # lower than the outer, the outer should be evaluated for
-                        # a top
-                        if self[i][2] > self[j][2] or self[i][3] < self[j][3]:
-                            for k in range(j-1,-1,-1):
-                                outer_break_2 = False
-                                if output[k] != 0 and output[k] % 2 == 0:
-                                    # high, no problem
-                                    outer_break = True
-                                    break # and break outer !!!!
-                                elif output[k] % 2 == 1: # low
-                                    # now the outer is a high
-                                    # check what kind of high
-                                    # look back further for the next high
-                                    for l in range(k-1,-1,-1): 
-                                        if output[l] != 0 and output[l] % 2 == 0: # high
-                                            if   self[j][2]  < self[l][2]: output[j] = LH
-                                            elif self[j][2]  > self[l][2]: output[j] = HH
-                                            elif self[j][2] == self[l][2]: output[j] = EH 
-                                            else: output[j] = H
-                                            outer_break = True
-                                            outer_break_2 = True
-                                            break
-                                if outer_break_2: break
-                    if outer_break: break
-                    ## end of outer detection block
-                    if output[j] != 0 and output[j] % 2 == 0: # high
-                        if   self[i-1][2]  < self[j][2]: output[i-1] = LH
-                        elif self[i-1][2]  > self[j][2]: output[i-1] = HH
-                        elif self[i-1][2] == self[j][2]: output[i-1] = EH 
-                        else: output[i-1] = H
-                        break
-                    if self[j][2] > hm: hm = self[j][2]
-                    if self[j][3] < lm: lm = self[j][3]
+                # checking for inbetween tops
+                count = 0
+                for k in range(j+1, len(output)-1): 
+                    if output[k] != 0: # top found
+                        count += 1
+                        if output[k] in [L, LL, EL, HL]: 
+                            pl.remove(k) # removing top indexes from list
+                        if output[k] in [H, LH, EH, HH]: 
+                            ph.remove(k) # idem
+                        output[k] = 0 # reset top
+                if count > 0:
+                    if len(pl) and len(ph):
+                        if (pl[-1] > ph[-1]): # if true, low is most recent
+                            mark = len(output)-1, 2
+                        elif (ph[-1] > pl[-1]): # high is most recent
+                            mark = len(output)-1, 1
+                    elif len(pl) and not len(ph):
+                        mark = len(output)-1, 2
+                    elif len(ph) and not len(pl):
+                        mark = len(output)-1, 1
+                    elif not len(pl) and not len(ph):
+                        # current outside bar has become indifferent
+                        mark = len(output)-1, 0 
+                if count == 0:
+                    # set same signal to current outside bar
+                    mark = len(output)-1, mark[1] 
+            continue
         
-    return TopsWrapper(self, output)    
+        if high > self[mark[0]][2] and low >= self[mark[0]][3]: # upbar
+            if mark[1]  < 2: # upbar with previous indifferent or low mark
+                if pl == []: 
+                    output[mark[0]] = L # L
+                else:
+                    if self[mark[0]][3] < self[pl[-1]][3]: 
+                        output[mark[0]] = LL # LL
+                    elif self[mark[0]][3] == self[pl[-1]][3]: 
+                        output[mark[0]] = EL # EL
+                    elif self[mark[0]][3] > self[pl[-1]][3]: 
+                        output[mark[0]] = HL # HL
+                pl.append(mark[0])
+                mark = len(output), 2
+                output.append(0)
+            elif mark[1] == 2: # upbar with previous high mark
+                output[mark[0]] = 0 # reset previous mark
+                mark = len(output), 2
+                output.append(0)
+            continue 
+        
+        if high <= self[mark[0]][2] and low < self[mark[0]][3]: # downbar
+            if mark[1] != 1: # downbar with previous indifferent or high mark
+                if ph == []: 
+                    output[mark[0]] = H # H
+                else:
+                    if self[mark[0]][2] < self[ph[-1]][2]: 
+                        output[mark[0]] = LH # LH
+                    elif self[mark[0]][2] == self[ph[-1]][2]: 
+                        output[mark[0]] = EH # EH
+                    elif self[mark[0]][2]  > self[ph[-1]][2]: 
+                        output[mark[0]] = HH # HH
+                ph.append(mark[0])
+                mark = len(output), 1
+                output.append(0)
+            elif mark[1] == 1: # downbar with previous low mark
+                output[mark[0]] = 0 # reset previous mark
+                mark = len(output), 1
+                output.append(0)
+            continue
+        
+    return TopsWrapper(self, output)  
+
