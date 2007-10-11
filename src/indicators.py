@@ -189,14 +189,14 @@ class TopsWrapper(list):
             yield self[i]
 
 class Tops(list):
-    
+    """class implementation of the tops indicator; created for caching"""
     def __init__(self):
         self.mark = 0, 0 # temporary tops holder
         self.ph, self.pl = [], [] # previous high and low list
         self.candles = []
         
     def process_candle(self, candle):
-        
+        """calculate tops based on candle input"""
         L = 1; LL = 11; EL = 21; HL = 31
         H = 2; LH = 12; EH = 22; HH = 32
         
@@ -289,7 +289,7 @@ class Tops(list):
                 self.append(0)
 
 def tops(self):
-    """Calculate tops
+    """calculate tops
     0 - no top 
     1 - L; 11 - LL; 21 - EL; 31 - HL
     2 - H; 12 - LH; 22 - EH; 32 - HH
@@ -315,13 +315,11 @@ def tops(self):
         
         if i == 0: # first entry, can never be determined
             output.append(0)
-            continue
         
-        if high <= self[mark[0]][2] and low >= self[mark[0]][3]: # inside bar
+        elif high <= self[mark[0]][2] and low >= self[mark[0]][3]: # inside bar
             output.append(0)
-            continue
         
-        if high > self[mark[0]][2] and low < self[mark[0]][3]: # outside bar
+        elif high > self[mark[0]][2] and low < self[mark[0]][3]: # outside bar
             if ph == [] and pl == []:
                 output.append(0)
                 mark = len(output)-1, 0
@@ -358,9 +356,8 @@ def tops(self):
                 if count == 0:
                     # set same signal to current outside bar
                     mark = len(output)-1, mark[1] 
-            continue
         
-        if high > self[mark[0]][2] and low >= self[mark[0]][3]: # upbar
+        elif high > self[mark[0]][2] and low >= self[mark[0]][3]: # upbar
             if mark[1]  < 2: # upbar with previous indifferent or low mark
                 if pl == []: 
                     output[mark[0]] = L # L
@@ -378,9 +375,8 @@ def tops(self):
                 output[mark[0]] = 0 # reset previous mark
                 mark = len(output), 2
                 output.append(0)
-            continue 
         
-        if high <= self[mark[0]][2] and low < self[mark[0]][3]: # downbar
+        elif high <= self[mark[0]][2] and low < self[mark[0]][3]: # downbar
             if mark[1] != 1: # downbar with previous indifferent or high mark
                 if ph == []: 
                     output[mark[0]] = H # H
@@ -398,7 +394,6 @@ def tops(self):
                 output[mark[0]] = 0 # reset previous mark
                 mark = len(output), 1
                 output.append(0)
-            continue
         
     return TopsWrapper(self, output)  
 
