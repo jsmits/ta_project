@@ -94,7 +94,6 @@ def ES_ticks(date):
     f = ES_file(date)
     if not f: return
     raw_ticks = []
-    t0 = time.time()
     dd_str = date.strftime("%y%m%d")
     match_str = "ES,%s" % dd_str
     for line in f.readlines():
@@ -104,8 +103,6 @@ def ES_ticks(date):
         elif len(raw_ticks): 
             break
     f.close()
-    t1 = time.time()
-    print "fetching %s ticks took %s seconds" % (len(raw_ticks), str(t1 - t0))
     raw_ticks_cleaned = clean_ES_ticks(raw_ticks)
     ticks = time_ticks(raw_ticks_cleaned)
     return ticks

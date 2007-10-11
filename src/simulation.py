@@ -3,6 +3,7 @@ from tickdata import get_ticks
 from signals import strategy_builder
 from ticker import Ticker
 import threading
+import time
 
 class SimulationRunner(object):
     
@@ -110,6 +111,11 @@ class SimulationBot(threading.Thread):
             if task is None:
                 break
             worker = self.create_worker(task)
+            task_id = task['task_id']
+            print "processing task %s by %s..." % (task_id, self.getName())
+            t1 = time.time()
             result = worker.run()
+            t2 = time.time()
+            print "task %s completed in %s seconds" % (task_id, str(t2 - t1))
             self.result.append({task['task_id']: result})
             self.queue.task_done()
