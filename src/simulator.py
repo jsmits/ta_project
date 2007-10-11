@@ -61,7 +61,7 @@ if __name__ == '__main__':
     from utils import random_weekday
     
     tops_signal_args = tops_signal_params_generator()
-    nr_of_strategies = 1
+    nr_of_strategies = 10
     random_strategy_args = random_strategies_generator(tops_signal_args, 
                                                        output=nr_of_strategies)
     strategy_map = create_strategy_map(random_strategy_args)
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     for id, map in strategy_map.items():
         t = Ticker(increment=0.25)
         strategy = strategy_builder(map['params'])
-        print "strategy build with: %s" % map['params']
+        # print "strategy build with: %s" % map['params']
         t0 = time.time()
         # 1.00 increase is 50
         # commission is 0.1 for roundtrip
@@ -116,6 +116,7 @@ if __name__ == '__main__':
                           'sum_delta': sum_delta}
         if average_delta and average_delta > 0 and pos_perc >= 50:
             reduced_map[id] = map
+        if sum_delta > 0: print map['summary']
         
             
 

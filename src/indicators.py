@@ -1,3 +1,5 @@
+import psyco
+
 def sma(self, params):
     input = []
     output = []
@@ -155,8 +157,9 @@ class TopsWrapper(list):
         self.candles = candles
         self.tops = all_tops
         self.top_indexes = []
+        psyco.bind(getattr(self, 'top_index_generator'))
         
-    def __top_indexes(self):
+    def top_index_generator(self):
         indexes = []
         for i in range(len(self.tops)):
             if self.tops[i] != 0: 
@@ -165,13 +168,13 @@ class TopsWrapper(list):
     
     def __getitem__(self, i):
         if not self.top_indexes: 
-            self.top_indexes = self.__top_indexes()
+            self.top_indexes = self.top_index_generator()
         index = self.top_indexes[i]
         return TopCandleWrapper(self, index) 
     
     def __getslice__(self, *args):
         if not self.top_indexes: 
-            self.top_indexes = self.__top_indexes()
+            self.top_indexes = self.top_index_generator()
         indexes = list.__getslice__(self.top_indexes, *args)
         start, stop = indexes[0], indexes[-1] + 1 # 1 extra, to include last top
         candles = list.__getslice__(self.candles, start, stop)
@@ -180,7 +183,7 @@ class TopsWrapper(list):
         
     def __len__(self):
         if not self.top_indexes: 
-            self.top_indexes = self.__top_indexes()
+            self.top_indexes = self.top_index_generator()
         return len(self.top_indexes)
     
     def __iter__(self):

@@ -8,16 +8,18 @@ from signals import strategy_builder
 t = Ticker(increment=0.25)
 ticks = ES_ticks(datetime(2003, 8, 8))
 
-signals_params = [('short_tops', 3, 'HH', 'low', 5, 6), 
-          ('long_tops', 2, 'LL', 'high', None, None), 
-          ('short_tops', 2, 'HH', 'low', 5, 8), 
-          ('long_tops', 4, 'LL', 'HH', None, None), 
-          ('short_tops', 10, 'high', 'low', 2, 3), 
-          ('long_tops', 2, 'HL', 'high', 4, 2), 
-          ('short_tops', 5, 'high', 'HL', 7, 4), 
-          ('long_tops', 10, 'HL', 'HH', 3, 8), 
-          ('long_tops', 10, 'low', 'high', 6, 3), 
-          ('long_tops', 4, 'low', 'high', 6, 8)]
+signals_params = [
+    ('short_tops', 3, 'HH', 'low', 5, 6), 
+    ('long_tops', 2, 'LL', 'high', None, None), 
+    ('short_tops', 2, 'HH', 'low', 5, 8), 
+    ('long_tops', 4, 'LL', 'HH', None, None), 
+    ('short_tops', 10, 'high', 'low', 2, 3), 
+    ('long_tops', 2, 'HL', 'high', 4, 2), 
+    ('short_tops', 5, 'high', 'HL', 7, 4), 
+    ('long_tops', 10, 'HL', 'HH', 3, 8), 
+    ('long_tops', 10, 'low', 'high', 6, 3), 
+    ('long_tops', 4, 'low', 'high', 6, 8)
+]
 
 strategy = strategy_builder(signals_params)
 
