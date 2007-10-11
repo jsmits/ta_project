@@ -27,6 +27,30 @@ class CandleWrapper(object):
     def __str__(self):
         date = datetime.fromtimestamp(self.timestamp)
         return "%s: %s, %s, %s, %s" % (date, self.open, self.high, self.low, self.close)
+    
+class SingleCandleWrapper(object):
+    """wrap a single candle so that the date can be accessed by candle.date and 
+    open, high, low, close can be accessed by candle.open, candle.high, etc.
+    """
+    def __init__(self, candle):
+        self.timestamp = candle[0]
+        self.open      = candle[1]
+        self.high      = candle[2]
+        self.low       = candle[3]
+        self.close     = candle[4]
+    
+    def __getitem__(self, i):
+        if   i == 0: return self.timestamp
+        elif i == 1: return self.open
+        elif i == 2: return self.high
+        elif i == 3: return self.low
+        elif i == 4: return self.close
+        else:
+            raise IndexError, "index out of range: %s" % i
+
+    def __str__(self):
+        date = datetime.fromtimestamp(self.timestamp)
+        return "%s: %s, %s, %s, %s" % (date, self.open, self.high, self.low, self.close)
 
 class TickCandles(list):
     """tick-based candles for a given period (in minutes)"""
@@ -34,6 +58,7 @@ class TickCandles(list):
         self.period = period
         self.current = None # current virtual candle
         self.current_ticks = []
+        self.cache = {}
                 
     def process_tick(self, tick):
         timestamp, value = tick['timestamp'], tick['value'] 
@@ -63,6 +88,14 @@ class TickCandles(list):
                     self.append((candle_time, close, close, close, close))
                     candle_time += self.period * 60
                 self.current = [candle_time, value, value, value, value]
+                
+    def tops(self):
+        key = "tops"
+        tops, start_index = self.cache.get(key, (indicators.Tops(), 0))
+        for candle in self[start_index:]:
+            tops.process_candle(SingleCandleWrapper(candle))
+        self.cache[key] = tops, len(self)
+        return indicators.TopsWrapper(tops.candles, tops)
     
     def __getattr__(self, name):
         # gets the indicators and calculates them

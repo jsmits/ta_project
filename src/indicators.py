@@ -187,125 +187,6 @@ class TopsWrapper(list):
         for i in range(len(self)):
             yield self[i]
 
-def tops(self):
-    """Calculate tops
-    0 - no top 
-    1 - L; 11 - LL; 21 - EL; 31 - HL
-    2 - H; 12 - LH; 22 - EH; 32 - HH
-    """
-    # signal constants   
-    L  =  1
-    LL = 11
-    EL = 21
-    HL = 31
-    H  =  2
-    LH = 12
-    EH = 22
-    HH = 32
-    
-    inputhigh = []
-    inputlow = []
-    output = []
-    
-    mark = 0, 0
-    ph = [] # previous high list
-    pl = [] # previous low list
-    
-    for candle in self:
-        high = candle[2]
-        low = candle[3]
-        inputhigh.append(high)
-        inputlow.append(low)
-        
-        if len(inputhigh) == 1: # first entry, can never be determined
-            output.append(0)
-            continue
-        
-        if high <= inputhigh[mark[0]] and low >= inputlow[mark[0]]: # inside bar
-            output.append(0)
-            continue
-        
-        if high > inputhigh[mark[0]] and low < inputlow[mark[0]]: # outside bar
-            if ph == [] and pl == []:
-                output.append(0)
-                mark = len(output)-1, 0
-            else:
-                output.append(0) # added new code line 17-7-2006 !!!
-                output[mark[0]] = 0
-                for j in reversed(range(len(output)-1)):
-                    if inputhigh[j] > high or inputlow[j] < low: 
-                        # first non-inclusive bar
-                        break
-                # checking for inbetween tops
-                count = 0
-                for k in range(j+1, len(output)-1): 
-                    if output[k] != 0: # top found
-                        count += 1
-                        if output[k] in [L, LL, EL, HL]: 
-                            pl.remove(k) # removing top indexes from list
-                        if output[k] in [H, LH, EH, HH]: 
-                            ph.remove(k) # idem
-                        output[k] = 0 # reset top
-                if count > 0:
-                    if len(pl) and len(ph):
-                        if (pl[-1] > ph[-1]): # if true, low is most recent
-                            mark = len(output)-1, 2
-                        elif (ph[-1] > pl[-1]): # high is most recent
-                            mark = len(output)-1, 1
-                    elif len(pl) and not len(ph):
-                        mark = len(output)-1, 2
-                    elif len(ph) and not len(pl):
-                        mark = len(output)-1, 1
-                    elif not len(pl) and not len(ph):
-                        # current outside bar has become indifferent
-                        mark = len(output)-1, 0 
-                if count == 0:
-                    # set same signal to current outside bar
-                    mark = len(output)-1, mark[1] 
-            continue
-        
-        if high > inputhigh[mark[0]] and low >= inputlow[mark[0]]: # upbar
-            if mark[1]  < 2: # upbar with previous indifferent or low mark
-                if pl == []: 
-                    output[mark[0]] = L # L
-                else:
-                    if inputlow[mark[0]] < inputlow[pl[-1]]: 
-                        output[mark[0]] = LL # LL
-                    elif inputlow[mark[0]] == inputlow[pl[-1]]: 
-                        output[mark[0]] = EL # EL
-                    elif inputlow[mark[0]] > inputlow[pl[-1]]: 
-                        output[mark[0]] = HL # HL
-                pl.append(mark[0])
-                mark = len(output), 2
-                output.append(0)
-            elif mark[1] == 2: # upbar with previous high mark
-                output[mark[0]] = 0 # reset previous mark
-                mark = len(output), 2
-                output.append(0)
-            continue 
-        
-        if high <= inputhigh[mark[0]] and low < inputlow[mark[0]]: # downbar
-            if mark[1] != 1: # downbar with previous indifferent or high mark
-                if ph == []: 
-                    output[mark[0]] = H # H
-                else:
-                    if inputhigh[mark[0]] < inputhigh[ph[-1]]: 
-                        output[mark[0]] = LH # LH
-                    elif inputhigh[mark[0]] == inputhigh[ph[-1]]: 
-                        output[mark[0]] = EH # EH
-                    elif inputhigh[mark[0]]  > inputhigh[ph[-1]]: 
-                        output[mark[0]] = HH # HH
-                ph.append(mark[0])
-                mark = len(output), 1
-                output.append(0)
-            elif mark[1] == 1: # downbar with previous low mark
-                output[mark[0]] = 0 # reset previous mark
-                mark = len(output), 1
-                output.append(0)
-            continue
-        
-    return TopsWrapper(self, output)    
-
 class Tops(list):
     
     def __init__(self):
@@ -405,11 +286,9 @@ class Tops(list):
                 self[self.mark[0]] = 0 # reset previous mark
                 self.mark = len(self), 1
                 self.append(0)
-                
-        return TopsWrapper(self.candles, self)    
 
-def ntops(self):
-    """Calculate tops, clean up
+def tops(self):
+    """Calculate tops
     0 - no top 
     1 - L; 11 - LL; 21 - EL; 31 - HL
     2 - H; 12 - LH; 22 - EH; 32 - HH
