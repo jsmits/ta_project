@@ -61,7 +61,7 @@ class TickCandles(list):
         self.cache = {}
                 
     def process_tick(self, tick):
-        timestamp, value = tick['timestamp'], tick['value'] 
+        timestamp, value = tick.timestamp, tick.value 
         self.current = self.current or [tick_boundaries(timestamp, self.period), 
             value, value, value, value]
         if timestamp <= self.current[0]:
@@ -90,12 +90,19 @@ class TickCandles(list):
                 self.current = [candle_time, value, value, value, value]
                 
     def tops(self):
+        # for tops an exception is made; this indicator is so important, that
+        # it got a separate method calcaluting tops via a Tops instance and
+        # caching the results as much as possible
         key = "tops"
         tops, start_index = self.cache.get(key, (indicators.Tops(), 0))
         for candle in self[start_index:]:
             tops.process_candle(SingleCandleWrapper(candle))
         self.cache[key] = tops, len(self)
         return indicators.TopsWrapper(tops.candles, tops)
+    
+    def append(self, candle):
+        candle = CandleWrapper(candle)
+        list.append(self, candle)
     
     def __getattr__(self, name):
         # gets the indicators and calculates them
@@ -112,20 +119,15 @@ class TickCandles(list):
         
     def __getitem__(self, i):
         return CandleWrapper(self, i) 
-    
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
         
-class TickWrapper(object):
+class Tick(object):
     """wrap a tick so that the date can be accessed by tick.date and
     the value can be accessed by tick.value
     """
-    def __init__(self, ticks, index):
-        ticks = ticks[:] # make a copy otherwise it becomes recursive
-        self.id = ticks[index].get('id') # optional
-        self.timestamp = ticks[index]['timestamp']
-        self.value = ticks[index]['value']
+    def __init__(self, tick):
+        self.id = tick.get('id') # optional
+        self.timestamp = tick['timestamp']
+        self.value = tick['value']
     
     def __getitem__(self, i):
         if   i == 0: return self.timestamp
@@ -154,8 +156,9 @@ class Ticks(list):
         """alias for candles(self, ...)"""
         return self.candles(period)
     
-    def __getitem__(self, i):
-        return TickWrapper(self, i) 
+    def append(self, tick):
+        tick = Tick(tick)
+        list.append(self, tick)
     
 class Ticker(object):
     """hold ticker data"""
