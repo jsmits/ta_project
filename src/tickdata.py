@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
+import random
 
 def process_fields(fields):    
     month, day, year = fields[0].split("/")
@@ -204,3 +205,43 @@ def SP_ticks_gen(date):
     for ts, v in tuple_ticks:
         dict_ticks.append({'timestamp': ts, 'value': v})
     return dict_ticks
+
+def weekdays_generator(start, end):
+    weekdays = []
+    current = start
+    while current <= end:
+        current = current + timedelta(days=1)
+        if current.isoweekday() in [1,2,3,4,5]:  
+            weekdays.append(current)
+    return weekdays
+
+def random_weekday(start, end):
+    weekdays = weekdays_generator(start, end)
+    if weekdays: 
+        return random.choice(weekdays)
+    
+def random_weekdays(start, end, number=3):
+    weekdays = []
+    tries = 0
+    while len(weekdays) != number:
+        weekday = random_weekday(start, end)
+        if weekday not in weekdays: 
+            weekdays.append(weekday)
+        tries += 1
+        if tries == 10000: 
+            break
+    return weekdays
+
+def get_ticks(symbol, day):
+    ticks_loader = globals().get("%s_ticks" % symbol)
+    ticks = ticks_loader(day)
+    return ticks
+
+def random_day_generator(symbol, start, end, number):
+    output = []
+    while len(output) != number:
+        day = random_weekday(start, end)
+        ticks = get_ticks(symbol, day)
+        if ticks: # TODO: think about validating these ticks
+            output.append(day)
+    return output

@@ -288,7 +288,7 @@ class Tops(list):
                 self.mark = len(self), 1
                 self.append(0)
 
-def tops(self):
+def ctops(self):
     """calculate tops
     0 - no top 
     1 - L; 11 - LL; 21 - EL; 31 - HL

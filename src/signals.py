@@ -139,10 +139,11 @@ def tops_signal_params_generator(periods=[15, 10, 5, 4, 3, 2],
                              stop_param, limit_param))
     return args
 
-def random_strategies_generator(args, min=6, max=12, output=10000):
+def random_strategies_generator(args=None, min=6, max=12, number=10000):
     strategies = []
     tries = 0
-    while len(strategies) != output:
+    args = args or tops_signal_params_generator()
+    while len(strategies) != number:
         nr_of_signals = random.choice(range(min, max))
         strategy = []
         for i in range(nr_of_signals):
