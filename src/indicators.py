@@ -187,6 +187,35 @@ class TopsWrapper(list):
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
+        
+    def __repr__(self):
+        return str(self.tops)
+    
+    def __eq__(self, other):
+        try:
+            other_tops = other.tops
+            other_top_indexes = other.top_indexes or other.top_index_generator()
+        except AttributeError:
+            return False
+        else:
+            top_indexes = self.top_indexes or self.top_index_generator()
+            if self.tops == other_tops and top_indexes == other_top_indexes:
+                return True
+            else:
+                return False
+            
+    def __ne__(self, other):
+        try:
+            other_tops = other.tops
+            other_top_indexes = other.top_indexes or other.top_index_generator()
+        except AttributeError:
+            return True
+        else:
+            top_indexes = self.top_indexes or self.top_index_generator()
+            if self.tops != other_tops or top_indexes != other_top_indexes:
+                return True
+            else:
+                return False
 
 class Tops(list):
     """class implementation of the tops indicator; created for caching"""
@@ -201,18 +230,18 @@ class Tops(list):
         H = 2; LH = 12; EH = 22; HH = 32
         
         ph, pl = self.ph, self.pl
-        high = candle[2]
-        low  = candle[3]
+        high = candle.high
+        low  = candle.low
         cs = self.candles
         cs.append(candle)
         
         if len(self) == 0: # first entry, can never be determined
             self.append(0)
         
-        elif high <= cs[self.mark[0]][2] and low >= cs[self.mark[0]][3]: # inside bar
+        elif high <= cs[self.mark[0]].high and low >= cs[self.mark[0]].low: # inside bar
             self.append(0)
         
-        elif high > cs[self.mark[0]][2] and low < cs[self.mark[0]][3]: # outside bar
+        elif high > cs[self.mark[0]].high and low < cs[self.mark[0]].low: # outside bar
             if ph == [] and pl == []:
                 self.append(0)
                 self.mark = len(self)-1, 0
@@ -220,7 +249,7 @@ class Tops(list):
                 self.append(0) # added new code line 17-7-2006 !!!
                 self[self.mark[0]] = 0
                 for j in reversed(range(len(self)-1)):
-                    if cs[j][2] > high or cs[j][3] < low: 
+                    if cs[j].high > high or cs[j].low < low: 
                         # first non-inclusive bar
                         break
                 # checking for inbetween tops
@@ -250,16 +279,16 @@ class Tops(list):
                     # set same signal to current outside bar
                     self.mark = len(self)-1, self.mark[1] 
         
-        elif high > cs[self.mark[0]][2] and low >= cs[self.mark[0]][3]: # upbar
+        elif high > cs[self.mark[0]].high and low >= cs[self.mark[0]].low: # upbar
             if self.mark[1]  < 2: # upbar with previous indifferent or low mark
                 if pl == []: 
                     self[self.mark[0]] = L # L
                 else:
-                    if cs[self.mark[0]][3] < cs[pl[-1]][3]: 
+                    if cs[self.mark[0]].low < cs[pl[-1]].low: 
                         self[self.mark[0]] = LL # LL
-                    elif cs[self.mark[0]][3] == cs[pl[-1]][3]: 
+                    elif cs[self.mark[0]].low == cs[pl[-1]].low: 
                         self[self.mark[0]] = EL # EL
-                    elif cs[self.mark[0]][3] > cs[pl[-1]][3]: 
+                    elif cs[self.mark[0]].low > cs[pl[-1]].low: 
                         self[self.mark[0]] = HL # HL
                 pl.append(self.mark[0])
                 self.mark = len(self), 2
@@ -269,16 +298,16 @@ class Tops(list):
                 self.mark = len(self), 2
                 self.append(0)
         
-        elif high <= cs[self.mark[0]][2] and low < cs[self.mark[0]][3]: # downbar
+        elif high <= cs[self.mark[0]].high and low < cs[self.mark[0]].low: # downbar
             if self.mark[1] != 1: # downbar with previous indifferent or high mark
                 if ph == []: 
                     self[self.mark[0]] = H # H
                 else:
-                    if cs[self.mark[0]][2] < cs[ph[-1]][2]: 
+                    if cs[self.mark[0]].high < cs[ph[-1]].high: 
                         self[self.mark[0]] = LH # LH
-                    elif cs[self.mark[0]][2] == cs[ph[-1]][2]: 
+                    elif cs[self.mark[0]].high == cs[ph[-1]].high: 
                         self[self.mark[0]] = EH # EH
-                    elif cs[self.mark[0]][2]  > cs[ph[-1]][2]: 
+                    elif cs[self.mark[0]].high  > cs[ph[-1]].high: 
                         self[self.mark[0]] = HH # HH
                 ph.append(self.mark[0])
                 self.mark = len(self), 1

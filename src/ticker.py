@@ -3,32 +3,7 @@ from datetime import datetime
 import indicators
 from utils import tick_boundaries
 
-class CandleWrapper(object):
-    """wrap a candle so that the date can be accessed by candle.date and 
-    open, high, low, close can be accessed by candle.open, candle.high, etc.
-    """
-    def __init__(self, candles, index):
-        candles = candles[:] # make a copy otherwise it becomes recursive
-        self.timestamp = candles[index][0]
-        self.open  = candles[index][1]
-        self.high  = candles[index][2]
-        self.low   = candles[index][3]
-        self.close = candles[index][4]
-    
-    def __getitem__(self, i):
-        if   i == 0: return self.timestamp
-        elif i == 1: return self.open
-        elif i == 2: return self.high
-        elif i == 3: return self.low
-        elif i == 4: return self.close
-        else:
-            raise IndexError, "index out of range: %s" % i
-
-    def __str__(self):
-        date = datetime.fromtimestamp(self.timestamp)
-        return "%s: %s, %s, %s, %s" % (date, self.open, self.high, self.low, self.close)
-    
-class SingleCandleWrapper(object):
+class Candle(object):
     """wrap a single candle so that the date can be accessed by candle.date and 
     open, high, low, close can be accessed by candle.open, candle.high, etc.
     """
@@ -46,7 +21,12 @@ class SingleCandleWrapper(object):
         elif i == 3: return self.low
         elif i == 4: return self.close
         else:
-            raise IndexError, "index out of range: %s" % i
+            try:
+                int(i)
+            except ValueError:
+                raise KeyError, i
+            else:
+                raise IndexError, "index out of range: %s" % i
 
     def __str__(self):
         date = datetime.fromtimestamp(self.timestamp)
@@ -96,13 +76,9 @@ class TickCandles(list):
         key = "tops"
         tops, start_index = self.cache.get(key, (indicators.Tops(), 0))
         for candle in self[start_index:]:
-            tops.process_candle(SingleCandleWrapper(candle))
+            tops.process_candle(candle)
         self.cache[key] = tops, len(self)
         return indicators.TopsWrapper(tops.candles, tops)
-    
-    def append(self, candle):
-        candle = CandleWrapper(candle)
-        list.append(self, candle)
     
     def __getattr__(self, name):
         # gets the indicators and calculates them
@@ -117,8 +93,9 @@ class TickCandles(list):
             self.__setattr__(name, meth)
             return getattr(self, name)
         
-    def __getitem__(self, i):
-        return CandleWrapper(self, i) 
+    def append(self, candle):
+        candle = Candle(candle)
+        list.append(self, candle)
         
 class Tick(object):
     """wrap a tick so that the date can be accessed by tick.date and
@@ -133,7 +110,12 @@ class Tick(object):
         if   i == 0: return self.timestamp
         elif i == 1: return self.value
         else:
-            raise IndexError, "index out of range: %s" % i
+            try:
+                int(i)
+            except ValueError:
+                raise KeyError, i
+            else:
+                raise IndexError, "index out of range: %s" % i
         
     def __str__(self):
         date = datetime.fromtimestamp(self.timestamp)
