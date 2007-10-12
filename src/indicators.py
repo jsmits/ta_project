@@ -195,7 +195,7 @@ class TopsWrapper(list):
         try:
             other_tops = other.tops
             other_top_indexes = other.top_indexes or other.top_index_generator()
-        except AttributeError:
+        except:
             return False
         else:
             top_indexes = self.top_indexes or self.top_index_generator()
@@ -208,7 +208,7 @@ class TopsWrapper(list):
         try:
             other_tops = other.tops
             other_top_indexes = other.top_indexes or other.top_index_generator()
-        except AttributeError:
+        except:
             return True
         else:
             top_indexes = self.top_indexes or self.top_index_generator()

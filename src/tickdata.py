@@ -61,30 +61,60 @@ def analyze_ES_files():
         f.close()
         print "file: %s, start: %s, end: %s" % (file, output[0][:-2], output[-1][:-2])
         output = []
+        
+ES_files_map = {
+    "ES0303TK.CSV": (datetime(2002, 12, 11), datetime(2003,  3, 12)), 
+    "ES0306TK.CSV": (datetime(2003,  3, 12), datetime(2003,  6, 11)),
+    "ES0309TK.CSV": (datetime(2003,  6, 11), datetime(2003,  9, 10)),
+    "ES0312TK.CSV": (datetime(2003,  9, 10), datetime(2003, 12, 10)),
+    "ES0403TK.CSV": (datetime(2003, 12, 10), datetime(2004,  3, 10)),
+    "ES0406TK.CSV": (datetime(2004,  3, 10), datetime(2004,  6,  9)),
+    "ES0409TK.CSV": (datetime(2004,  6,  9), datetime(2004,  9,  8)),
+    "ES0412TK.CSV": (datetime(2004,  9,  8), datetime(2004, 12,  8)),
+    "ES0503TK.CSV": (datetime(2004, 12,  8), datetime(2005,  3,  9)),
+    "ES0506TK.CSV": (datetime(2005,  3,  9), datetime(2005,  6,  8)),
+    "ES0509TK.CSV": (datetime(2005,  6,  8), datetime(2005,  9,  7)),
+    "ES0512TK.CSV": (datetime(2005,  9,  7), datetime(2005, 12,  7)),
+    "ES0603TK.CSV": (datetime(2005, 12,  7), datetime(2006,  3,  8)),
+    "ES0606TK.CSV": (datetime(2006,  3,  8), datetime(2006,  6,  7)),
+    "ES0609TK.CSV": (datetime(2006,  6,  7), datetime(2006,  9,  6)),
+    "ES0612TK.CSV": (datetime(2006,  9,  6), datetime(2006, 12,  6)),
+    "ES0703TK.CSV": (datetime(2006, 12,  6), datetime(2007,  3,  7)),
+    "ES0706TK.CSV": (datetime(2007,  3,  7), datetime(2007,  6,  6)),
+    "ES0709TK.CSV": (datetime(2007,  6,  6), datetime(2007,  9, 12)),
+    # append new ES tick files from anfutures.com here
+}
+
+def get_unavailable_dates(symbol):
+    ua_dict = {
+        "ES": [
+               datetime(2002, 12, 25, 0, 0), 
+               datetime(2003, 1, 1, 0, 0), 
+               datetime(2003, 4, 18, 0, 0), 
+               datetime(2003, 7, 4, 0, 0), 
+               datetime(2003, 12, 25, 0, 0), 
+               datetime(2004, 1, 1, 0, 0), 
+               datetime(2004, 4, 9, 0, 0), 
+               datetime(2004, 6, 11, 0, 0), 
+               datetime(2004, 12, 24, 0, 0), 
+               datetime(2005, 3, 25, 0, 0), 
+               datetime(2006, 4, 14, 0, 0), 
+               datetime(2006, 12, 25, 0, 0), 
+               datetime(2007, 1, 1, 0, 0), 
+               # add here if there are new files
+               # last one scanned was ES0709TK.CSV with unavailable_day_finder
+               ]
+        }
+    ua = ua_dict.get(symbol, [])
+    return ua
+
+def is_unavailable(symbol, date):
+    ua = get_unavailable_dates(symbol)
+    if ua and date in ua: 
+        return True
 
 def ES_file(dt):
-    files_map = {
-        "ES0303TK.CSV": (datetime(2002, 12, 11), datetime(2003,  3, 12)), 
-        "ES0306TK.CSV": (datetime(2003,  3, 12), datetime(2003,  6, 11)),
-        "ES0309TK.CSV": (datetime(2003,  6, 11), datetime(2003,  9, 10)),
-        "ES0312TK.CSV": (datetime(2003,  9, 10), datetime(2003, 12, 10)),
-        "ES0403TK.CSV": (datetime(2003, 12, 10), datetime(2004,  3, 10)),
-        "ES0406TK.CSV": (datetime(2004,  3, 10), datetime(2004,  6,  9)),
-        "ES0409TK.CSV": (datetime(2004,  6,  9), datetime(2004,  9,  8)),
-        "ES0412TK.CSV": (datetime(2004,  9,  8), datetime(2004, 12,  8)),
-        "ES0503TK.CSV": (datetime(2004, 12,  8), datetime(2005,  3,  9)),
-        "ES0506TK.CSV": (datetime(2005,  3,  9), datetime(2005,  6,  8)),
-        "ES0509TK.CSV": (datetime(2005,  6,  8), datetime(2005,  9,  7)),
-        "ES0512TK.CSV": (datetime(2005,  9,  7), datetime(2005, 12,  7)),
-        "ES0603TK.CSV": (datetime(2005, 12,  7), datetime(2006,  3,  8)),
-        "ES0606TK.CSV": (datetime(2006,  3,  8), datetime(2006,  6,  7)),
-        "ES0609TK.CSV": (datetime(2006,  6,  7), datetime(2006,  9,  6)),
-        "ES0612TK.CSV": (datetime(2006,  9,  6), datetime(2006, 12,  6)),
-        "ES0703TK.CSV": (datetime(2006, 12,  6), datetime(2007,  3,  7)),
-        "ES0706TK.CSV": (datetime(2007,  3,  7), datetime(2007,  6,  6)),
-        "ES0709TK.CSV": (datetime(2007,  6,  6), datetime(2007,  9, 12)),
-        # append new ES tick files from anfutures.com here
-        }
+    files_map = ES_files_map
     file_path = '../tickdata/anfutures/ES/'
     for file_name, (start, end) in files_map.items():
         if dt > start and dt <= end: 
@@ -207,9 +237,9 @@ def weekdays_generator(start, end):
     weekdays = []
     current = start
     while current <= end:
-        current = current + timedelta(days=1)
         if current.isoweekday() in [1,2,3,4,5]:  
             weekdays.append(current)
+        current = current + timedelta(days=1)
     return weekdays
 
 def random_weekday(start, end):
@@ -242,3 +272,46 @@ def random_day_generator(symbol, start, end, number):
         if ticks: # TODO: think about validating these ticks
             output.append(day)
     return output
+
+def trial_generator(symbol, start, end, days, trials):
+    output = []
+    invalid_days = set([d for d in get_unavailable_dates(symbol)])
+    tries = 0
+    while len(output) != trials:
+        invalid = False
+        weekdays = random_weekdays(start, end, number=days)
+        weekdays.sort()
+        if weekdays not in output:
+            for weekday in weekdays:
+                if weekday in invalid_days:
+                    invalid = True
+                    break
+            if invalid:
+                continue
+            else:
+                output.append(weekdays)
+        tries += 1
+        if tries == 100 * trials: 
+            break
+    return output
+
+def unavailable_day_finder(symbol, start, end):
+    unavailable_days = []
+    days = weekdays_generator(start, end)
+    for day in days:
+        ticks = get_ticks(symbol, day)
+        if not ticks:
+            print "%s unavailable" % str(day)
+            unavailable_days.append(day)
+    return unavailable_days
+
+if __name__ == '__main__':
+    
+    from datetime import datetime
+    start = datetime(2006, 1, 1, 0, 0)
+    end = datetime(2007, 1, 1)
+    
+    trials = trial_generator("ES", start, end, 5, 100)
+    
+        
+    

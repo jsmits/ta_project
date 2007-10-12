@@ -1,8 +1,9 @@
 import random
 
-class SignalWrapper(object):
-    def __init__(self, signal):
+class Signal(object):
+    def __init__(self, signal, args):
         self.signal = signal
+        self.args = args # the args for building the signal
         self.target = None
         self.stop = None
         self.limit = None
@@ -25,7 +26,7 @@ class SignalWrapper(object):
         return self.signal.__name__
     
     def __repr__(self):
-        return "SignalWrapper(%s)" % self.signal.__name__
+        return repr(self.args)
 
 # mother of all long tops signals
 def long_tops_signal_generator(period, low_top, high_top, stop_param, 
@@ -175,7 +176,7 @@ def strategy_builder(args):
     for arg in args:
         generator = globals().get("%s_signal_generator" % arg[0])
         signal = generator(*arg[1:])
-        strategy.append(SignalWrapper(signal))
+        strategy.append(Signal(signal, arg))
     return strategy
           
 if __name__ == '__main__':
