@@ -1,0 +1,14 @@
+stomp.py
+http://www.briggs.net.nz/log/projects/stomppy/
+
+processing
+http://cheeseshop.python.org/pypi/processing/0.35
+
+psyco
+http://psyco.sourceforge.net/
+
+pychartdir (ChartDirector) (only for charting.py)
+http://www.advsofteng.com/
+
+TWS API software (jtsclient.jar)
+http://individuals.interactivebrokers.com/en/control/apicontrol.php?ib_entity=llc
