@@ -97,7 +97,8 @@ def get_unavailable_dates(symbol):
                datetime(2004, 4, 9, 0, 0), 
                datetime(2004, 6, 11, 0, 0), 
                datetime(2004, 12, 24, 0, 0), 
-               datetime(2005, 3, 25, 0, 0), 
+               datetime(2005, 3, 25, 0, 0),
+               datetime(2006, 1, 2, 0, 0), # found manually, starts at 17:00:00
                datetime(2006, 4, 14, 0, 0), 
                datetime(2006, 12, 25, 0, 0), 
                datetime(2007, 1, 1, 0, 0), 
@@ -112,7 +113,7 @@ def is_unavailable(symbol, date):
     ua = get_unavailable_dates(symbol)
     if ua and date in ua: 
         return True
-
+    
 def ES_file(dt):
     files_map = ES_files_map
     file_path = '../tickdata/anfutures/ES/'

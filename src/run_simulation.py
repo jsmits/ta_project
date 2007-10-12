@@ -1,15 +1,15 @@
 from datetime import datetime
-from simulation import SimulationBot
 from tickdata import trial_generator
+from processing import Process, BufferedQueue, Queue
+from simulation import process_func
 
 ticker_map = {
-    "ES": {'increment': 0.25, 'commission': 0.1, 'start': datetime(2004, 1, 1),
-           'end': datetime(2007, 1, 1), 'hours': ((8,30), (14,45))},
+    "ES": {'increment': 0.25, 'commission': 0.1, 'start': (2007, 1, 1),
+           'end': (2007, 3, 1), 'hours': ((8,30), (14,45))},
 }
 
 if __name__ == '__main__':
     
-    import Queue
     from signals import random_strategies_generator
     from tickdata import random_day_generator
     import operator
@@ -18,11 +18,12 @@ if __name__ == '__main__':
     ticker_details = ticker_map.get(symbol)
     ticker_details.update({'symbol': symbol})
     
-    nr_strategies = 200
-    nr_days = 3
+    nr_strategies = 600
+    nr_days = 5
     strategy_args = random_strategies_generator(number=nr_strategies) 
-    days = random_day_generator(symbol, ticker_details['start'], 
-                                        ticker_details['end'], nr_days)
+    sdt = datetime(*ticker_details['start'])
+    edt = datetime(*ticker_details['end'])
+    days = random_day_generator(symbol, sdt, edt, nr_days)
     # -- map --
     print "task dispatching started at %s" % str(datetime.now())
     # create tasks
@@ -33,33 +34,34 @@ if __name__ == '__main__':
     for args in strategy_args:
         for day in days:
             task = {'strategy_id': strategy_id, 'strategy_args': args, 
-                    'day': day, 'ticker': ticker_details, 'task_id': task_id}
+                    'day': day.timetuple()[:3], 'ticker': ticker_details, 
+                    'task_id': task_id}
             tasks[task_id] = task
             task_id += 1
         strategy_results[strategy_id] = 0
         strategy_id += 1
         
-    # create Queue
-    queue = Queue.Queue()
-    result = []
-    
-    # create 2 workers
-    for i in range(1):
-        bot = SimulationBot(queue, result)
-        bot.setDaemon(1)
-        bot.start()
+    # create Queues
+    queue = BufferedQueue()
+    result = Queue()
     
     # publish the tasks
-    for task in tasks.values():
-        queue.put(task)
+    queue.putmany(tasks.values())
     
-    queue.join()
-    print "all tasks have been processed at %s" % str(datetime.now())
+    # create 2 Processes
+    processes = []
+    for i in range(2):
+        p = Process(target=process_func, args=[queue, result])
+        p.setStoppable(True)
+        p.start()
+        processes.append(p)
     
-    for result_dict in result:
+    for i in range(len(tasks)):
+        result_dict = result.get()
         for task_id, report in result_dict.items():
             tsk = tasks.get(task_id)
             tsk.update({'report': report})
+    print "all tasks have been processed at %s" % str(datetime.now())
                 
     # -- reduce --
     ## here the key is to get the cumulative delta per strategy and 
@@ -91,11 +93,11 @@ if __name__ == '__main__':
         
         if mc_strategies:
             
-            ## Monte Carlo
+            ## Monte Carlo, small 10 random weeks
             # -- map --
             trials_start = datetime(2006, 1, 1)
             trials_end = datetime(2007, 1, 1)
-            trials = trial_generator("ES", trials_start, trials_end, 5, 50)
+            trials = trial_generator("ES", trials_start, trials_end, 5, 10)
             
             # build tasks and run simulation
             # create tasks
@@ -105,38 +107,39 @@ if __name__ == '__main__':
             mc_args = [strategy_args[i] for i in mc_strategies]
             for i in mc_strategies:
                 args = strategy_args[i]
+                mc_strategy_results[i] = {}
                 mc_trial_id = 0
                 for trial in trials:
                     for day in trial:
+                        mc_strategy_results[i][mc_trial_id] = 0
                         task = {'strategy_id': i, 'strategy_args': args, 
-                                'day': day, 'ticker': ticker_details, 
-                                'task_id': task_id, 'trial_id': mc_trial_id}
+                          'day': day.timetuple()[:3], 'ticker': ticker_details, 
+                          'task_id': task_id, 'trial_id': mc_trial_id}
                         mc_tasks[mc_task_id] = task
                         mc_task_id += 1
                     mc_trial_id += 1
-                mc_strategy_results[i] = 0
-                
-            # create Queue
-            mc_queue = Queue.Queue()
-            mc_result = []
             
             # publish the tasks
-            for task in tasks.values():
-                mc_queue.put(task)
-                
-            # create 2 workers
-            for i in range(1):
-                bot = SimulationBot(mc_queue, mc_result)
-                bot.setDaemon(1)
-                bot.start()
-            
-            mc_queue.join()
+            queue.putmany(mc_tasks.values())
+
             print "all tasks have been processed at %s" % str(datetime.now())
-            
+            for i in range(len(mc_tasks)):
+                result_dict = result.get()
+                for task_id, report in result_dict.items():
+                    tsk = mc_tasks.get(task_id)
+                    tsk.update({'report': report})
+                    
             # -- reduce --
+            for id, task in mc_tasks.items():
+                strategy_id = task['strategy_id']
+                for order_id, order in task['report'].items():
+                    mc_strategy_results[strategy_id][task['trial_id']] += order['delta']
             
         else:
             print "insufficient results for Monte Carlo"
+            
+    for process in processes:
+        process.stop()
         
     
     

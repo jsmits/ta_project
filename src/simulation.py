@@ -1,9 +1,29 @@
 from datetime import datetime
+import time
+from ticker import Ticker
 from tickdata import get_ticks
 from signals import strategy_builder
-from ticker import Ticker
-import threading
-import time
+
+def create_ticker(ticker_details):
+    ticker = Ticker(**ticker_details)
+    return ticker
+
+def create_ticks(ticker_details, day):
+    symbol = ticker_details['symbol']
+    date = datetime(*day)
+    ticks = get_ticks(symbol, date)
+    return ticks
+
+def create_strategy(args):
+    strategy = strategy_builder(args)
+    return strategy
+    
+def create_worker(task):
+    ticker = create_ticker(task['ticker'])
+    ticks = create_ticks(task['ticker'], task['day'])
+    strategy = create_strategy(task['strategy_args'])
+    worker = SimulationRunner(ticker, ticks, strategy)
+    return worker
 
 class SimulationRunner(object):
     
@@ -43,15 +63,15 @@ class SimulationRunner(object):
 
     def create_order(self, tick, signal):
         tick_value = tick['value']
-        self.orders[self.order_id] = {'signal': signal, 'order_value': tick_value,
+        self.orders[self.order_id] = {'signal': signal.args, 
+            'signal_name': str(signal), 'order_value': tick_value,
             'order_timestamp': tick['timestamp'], 'entry_value': signal.target, 
             'stop': signal.stop, 'limit': signal.limit} 
         self.open_order = True
         
     def check_exit(self, tick, open_order):
         order = open_order
-        signal = order['signal']
-        signal_name = str(signal)
+        signal_name = order['signal_name']
         tick_value = tick['value']
         if signal_name.startswith("entry_long") and \
             (tick_value >= order['limit'] or tick_value <= order['stop']):
@@ -66,8 +86,7 @@ class SimulationRunner(object):
         entry_time = order['order_timestamp']
         order.update({'exit_value': tick['value'], 'exit_time': tick['timestamp'],
             'timespan': tick['timestamp'] - entry_time})
-        signal = order['signal']
-        signal_name = str(signal)
+        signal_name = order['signal_name']
         delta_unc = None
         if signal_name.startswith("entry_long"):
             delta_unc = tick['value'] - entry_value
@@ -78,44 +97,11 @@ class SimulationRunner(object):
         self.order_id += 1
         self.open_order = False
         
-class SimulationBot(threading.Thread):
-    
-    def __init__(self, queue, result):
-        threading.Thread.__init__(self)
-        self.queue = queue
-        self.result = result
-        
-    def create_ticker(self, ticker_details):
-        ticker = Ticker(**ticker_details)
-        return ticker
-    
-    def create_ticks(self, ticker_details, day):
-        symbol = ticker_details['symbol']
-        ticks = get_ticks(symbol, day)
-        return ticks
-    
-    def create_strategy(self, args):
-        strategy = strategy_builder(args)
-        return strategy
-        
-    def create_worker(self, task):
-        ticker = self.create_ticker(task['ticker'])
-        ticks = self.create_ticks(task['ticker'], task['day'])
-        strategy = self.create_strategy(task['strategy_args'])
-        worker = SimulationRunner(ticker, ticks, strategy)
-        return worker
-    
-    def run(self):
-        while True:
-            task = self.queue.get()
-            if task is None:
-                break
-            worker = self.create_worker(task)
-            task_id = task['task_id']
-            print "processing task %s by %s..." % (task_id, self.getName())
-            t1 = time.time()
-            result = worker.run()
-            t2 = time.time()
-            print "task %s completed in %s seconds" % (task_id, str(t2 - t1))
-            self.result.append({task['task_id']: result})
-            self.queue.task_done()
+def process_func(queue, result):
+    for task in iter(queue.get, 'STOP'):
+        worker = create_worker(task)
+        t1 = time.time()
+        report = worker.run()
+        t2 = time.time()
+        print "task %s completed in %s seconds" % (task['task_id'], str(t2 - t1))
+        result.put({task['task_id']: report})
