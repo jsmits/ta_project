@@ -4,27 +4,6 @@ from ticker import Ticker
 from tickdata import get_ticks
 from signals import strategy_builder
 
-def create_ticker(ticker_details):
-    ticker = Ticker(**ticker_details)
-    return ticker
-
-def create_ticks(ticker_details, day):
-    symbol = ticker_details['symbol']
-    date = datetime(*day)
-    ticks = get_ticks(symbol, date)
-    return ticks
-
-def create_strategy(args):
-    strategy = strategy_builder(args)
-    return strategy
-    
-def create_worker(task):
-    ticker = create_ticker(task['ticker'])
-    ticks = create_ticks(task['ticker'], task['day'])
-    strategy = create_strategy(task['strategy_args'])
-    worker = SimulationRunner(ticker, ticks, strategy)
-    return worker
-
 class SimulationRunner(object):
     
     def __init__(self, ticker, ticks, strategy, start=(8,30), end=(14,45)):
@@ -42,9 +21,10 @@ class SimulationRunner(object):
             self.ticker.ticks.append(tick)
             tick_date = datetime.fromtimestamp(tick['timestamp'])
             # skip non-trading hours
-            if tick_date.hour <= self.start[0] and tick_date.minute < self.start[1]: 
+            tick_in_minutes = tick_date.hour * 60 + tick_date.minute
+            if tick_in_minutes < self.start[0] * 60 + self.start[1]:
                 continue 
-            if tick_date.hour >= self.end[0] and tick_date.minute > self.end[1]:
+            if tick_in_minutes >= self.end[0] * 60 + self.end[1]:
                 if self.open_order:
                     order = self.orders[self.order_id]
                     self.close_order(tick, order)
@@ -96,6 +76,27 @@ class SimulationRunner(object):
         order.update({'delta_unc': delta_unc, 'delta': delta})
         self.order_id += 1
         self.open_order = False
+        
+def create_ticker(ticker_details):
+    ticker = Ticker(**ticker_details)
+    return ticker
+
+def create_ticks(ticker_details, day):
+    symbol = ticker_details['symbol']
+    date = datetime(*day)
+    ticks = get_ticks(symbol, date)
+    return ticks
+
+def create_strategy(args):
+    strategy = strategy_builder(args)
+    return strategy
+    
+def create_worker(task):
+    ticker = create_ticker(task['ticker'])
+    ticks = create_ticks(task['ticker'], task['day'])
+    strategy = create_strategy(task['strategy_args'])
+    worker = SimulationRunner(ticker, ticks, strategy)
+    return worker
         
 def process_func(queue, result):
     for task in iter(queue.get, 'STOP'):

@@ -102,6 +102,8 @@ def get_unavailable_dates(symbol):
                datetime(2006, 4, 14, 0, 0), 
                datetime(2006, 12, 25, 0, 0), 
                datetime(2007, 1, 1, 0, 0), 
+               datetime(2007, 1, 2, 0, 0), # probably unavailable, found manually (TODO: inspect)
+               datetime(2007, 1, 15, 0, 0), # probably unavailable, found manually (TODO: inspect)
                # add here if there are new files
                # last one scanned was ES0709TK.CSV with unavailable_day_finder
                ]
