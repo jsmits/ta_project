@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from calendar import Calendar
 import time
 import random
 
@@ -102,8 +103,8 @@ def get_unavailable_dates(symbol):
                datetime(2006, 4, 14, 0, 0), 
                datetime(2006, 12, 25, 0, 0), 
                datetime(2007, 1, 1, 0, 0), 
-               datetime(2007, 1, 2, 0, 0), # probably unavailable, found manually (TODO: inspect)
-               datetime(2007, 1, 15, 0, 0), # probably unavailable, found manually (TODO: inspect)
+               datetime(2007, 1, 2, 0, 0), # data missing between 8:15 and 15:30
+               datetime(2007, 1, 15, 0, 0), # data missing between 10:30 and 17:00
                # add here if there are new files
                # last one scanned was ES0709TK.CSV with unavailable_day_finder
                ]
@@ -298,6 +299,26 @@ def trial_generator(symbol, start, end, days, trials):
             break
     return output
 
+def get_random_week_triplet(symbol):
+    invalid_days = set([d for d in get_unavailable_dates(symbol)])
+    year = random.choice([2003,2004,2005,2006])
+    cal = Calendar()
+    year_weeks = []
+    for month in range(12):
+        weeks = cal.monthdatescalendar(year, month+1)
+        for week in weeks:                    
+            if week not in year_weeks: 
+                year_weeks.append(week)
+    rwi = random.choice(range(len(year_weeks)-2))
+    prev_w, cur_w, next_w = year_weeks[rwi][:5], year_weeks[rwi+1][:5], year_weeks[rwi+2][:5]
+    prev_w = [datetime(d.year, d.month, d.day) for d in prev_w]
+    cur_w = [datetime(d.year, d.month, d.day) for d in cur_w]
+    next_w = [datetime(d.year, d.month, d.day) for d in next_w]
+    prev_w = [d for d in prev_w if d not in invalid_days]
+    cur_w = [d for d in cur_w if d not in invalid_days]
+    next_w = [d for d in next_w if d not in invalid_days]
+    return prev_w, cur_w, next_w
+
 def unavailable_day_finder(symbol, start, end):
     unavailable_days = []
     days = weekdays_generator(start, end)
@@ -308,13 +329,47 @@ def unavailable_day_finder(symbol, start, end):
             unavailable_days.append(day)
     return unavailable_days
 
+def create_tick_files(symbol, start, end, path=None):
+    days = weekdays_generator(start, end)
+    path = path or "../tickdata/anfutures/ES/perday"
+    for day in days:
+        ticks = get_ticks(symbol, day)
+        if ticks:
+            f = open("%s/%s.txt" % (path, day.strftime("%Y%m%d"), 'w'))
+            lines = []
+            for tick in ticks:
+                timestamp = tick['timestamp']
+                value = str(tick['value'])
+                ts = datetime.fromtimestamp(timestamp).strftime("%H%M%S")
+                line = "%s,%s\n" % (ts, value)
+                lines.append(line)
+            if lines: f.writelines(lines)
+            f.close()
+
 if __name__ == '__main__':
     
     from datetime import datetime
-    start = datetime(2006, 1, 1, 0, 0)
-    end = datetime(2007, 1, 1)
+    start = datetime(2002, 12, 11)
+    end = datetime(2007,  9, 12)
+    days = weekdays_generator(start, end)
+    path = "../tickdata/anfutures/ES/day"
     
-    trials = trial_generator("ES", start, end, 5, 100)
+    for day in days:
+        ticks = get_ticks("ES", day)
+        if ticks:
+            f = open("../tickdata/anfutures/ES/perday/%s.txt" % day.strftime("%Y%m%d"), 'w')
+            print "ES ticks found for %s" % str(day)
+            lines = []
+            for tick in ticks:
+                timestamp = tick['timestamp']
+                value = str(tick['value'])
+                ts = datetime.fromtimestamp(timestamp).strftime("%H%M%S")
+                line = "%s,%s\n" % (ts, value)
+                lines.append(line)
+            if lines: f.writelines(lines)
+            f.close()
     
+    #trials = trial_generator("ES", start, end, 5, 100)
+    #prev_w, cur_w, next_w = get_random_week_triplet("ES")
         
     

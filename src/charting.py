@@ -1,3 +1,4 @@
+from tickdata import get_ticks
 import pychartdir
 from datetime import datetime, timedelta
 #from Indicators import Indicators # file in ~/ta
@@ -51,8 +52,8 @@ def make_chart(candles, tops): # data should be candles, tops are calculated via
     top = int((high + major) - high % major)
     if top - high < 0.5: top = top + major
     
-    x = 650
-    y = 450
+    x = 800
+    y = 400
     c = pychartdir.XYChart(x, y)
     xMargin = 50
     yMargin = 25
@@ -72,6 +73,7 @@ def make_chart(candles, tops): # data should be candles, tops are calculated via
     c.yAxis().setTickLength2(-4, -2) 
     layer = c.addHLOCLayer(highData, lowData, openData, closeData, 0x1D4221)
     layer.setLineWidth(1.5)
+    c.xAxis().addZone(33, 60, 0xccffff)
     c.layout() 
     # show the tops
 
@@ -96,25 +98,29 @@ def make_chart(candles, tops): # data should be candles, tops are calculated via
 def main(lcs, scs):
     import time
     stamp = int(time.time())
+    t1 = time.time()
     c = make_chart(lcs, lcs.tops().tops)
     filename = "../charts/hloc_%s_long.png" % stamp
     c.makeChart(filename)
+    t2 = time.time()
+    print "creating chart took %s seconds" % str(t2 - t1)
     os.system("open -a ViewIt %s" % filename)
     
-    onchart = 60
-    s_tops = scs.tops().tops
-    start = 0
-    end = onchart
-    count = 1
-    while start < len(scs):
-        c = make_chart(scs[start:end], s_tops[start:end])
-        filename = "../charts/hloc_%s_short_%s.png" % (stamp, count)
-        c.makeChart(filename)
-        start += onchart
-        end += onchart
-        if start >= len(scs): break
-        if end > len(scs): end = len(scs)
-        count += 1
+    if scs:
+        onchart = 60
+        s_tops = scs.tops().tops
+        start = 0
+        end = onchart
+        count = 1
+        while start < len(scs):
+            c = make_chart(scs[start:end], s_tops[start:end])
+            filename = "../charts/hloc_%s_short_%s.png" % (stamp, count)
+            c.makeChart(filename)
+            start += onchart
+            end += onchart
+            if start >= len(scs): break
+            if end > len(scs): end = len(scs)
+            count += 1
          
 
 if __name__ == '__main__':
@@ -127,8 +133,8 @@ if __name__ == '__main__':
     end = datetime(2003, 6, 11)
     #ticks = tick_list('ES', start, end)
     
-    date = datetime(2000, 8, 11)
-    ticks = SP_ticks(date, hist=0)
+    date = datetime(2004, 3, 9)
+    ticks = get_ticks("ES", date)
     
     t = Ticker()
     for tick in ticks:
@@ -137,4 +143,4 @@ if __name__ == '__main__':
     lcs = t.ticks.cs(15)
     scs = t.ticks.cs(2)
     
-    main(lcs, scs)
+    main(lcs, [])

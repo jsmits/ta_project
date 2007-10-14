@@ -17,6 +17,7 @@ class SimulationRunner(object):
         self.open_order = False
         
     def run(self):
+        # PM calculate start and end in epoch secs here
         for tick in self.ticks:
             self.ticker.ticks.append(tick)
             tick_date = datetime.fromtimestamp(tick['timestamp'])
@@ -40,6 +41,7 @@ class SimulationRunner(object):
                     if processed_signal:
                         self.create_order(tick, processed_signal)
                         break
+        return {}
 
     def create_order(self, tick, signal):
         tick_value = tick['value']

@@ -1,4 +1,5 @@
 from datetime import datetime
+from numpy import zeros
 
 import indicators
 from utils import tick_boundaries
@@ -32,6 +33,49 @@ class Candle(object):
         date = datetime.fromtimestamp(self.timestamp)
         return "%s: %s, %s, %s, %s" % (date, self.open, self.high, self.low, self.close)
 
+class ArrayTickCandles(object):
+    
+    def __init__(self, period, days=None):
+        self.period = period
+        self.current_ticks = []
+        self.cache = {}
+        day_span = days or 2
+        rows = (day_span * 1440) / period
+        self.array = zeros((rows, 5), float)
+        self.current_index = None
+        
+    def __init_array(self, first_values):
+        self.array[0] = first_values
+        delta = self.period * 60
+        tm = self.array[0][0] # first timestamp
+        for row in self.array[1:]: # skip the first row
+            tm += delta
+            row[0] = tm
+        self.current_index = 0
+        
+    def process_tick(self, tick):
+        timestamp, value = tick.timestamp, tick.value
+        a = self.array
+        ci = self.current_index
+        c_row = a[ci]
+        if ci is None:
+            first_values = [tick_boundaries(timestamp, self.period), 
+                                            value, value, value, value]
+            self.__init_array(first_values)
+        if timestamp <= c_row[0]:
+            self.current_ticks.append((timestamp, value))
+            c_row[4] = value # close
+            if value > c_row[2]: c_row[2] = value # update high
+            elif value < c_row[3]: c_row[3] = value # update low
+        else:
+            last_close = c_row[4]
+            self.current_index += 1
+            self.current_ticks = []
+            while timestamp > a[self.current_index][0]:
+                a[self.current_index][1:] = [last_close] * 4
+                self.current_index += 1
+            a[self.current_index][1:] = [value] * 4
+        
 class TickCandles(list):
     """tick-based candles for a given period (in minutes)"""
     def __init__(self, period):
@@ -41,9 +85,9 @@ class TickCandles(list):
         self.cache = {}
                 
     def process_tick(self, tick):
-        timestamp, value = tick.timestamp, tick.value 
+        timestamp, value = tick.timestamp, tick.value
         self.current = self.current or [tick_boundaries(timestamp, self.period), 
-            value, value, value, value]
+                                            value, value, value, value]
         if timestamp <= self.current[0]:
             self.current_ticks.append((timestamp, value))
             self.current[4] = value # reset close
