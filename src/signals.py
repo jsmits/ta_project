@@ -62,6 +62,33 @@ def long_tops_signal_generator(period, low_top, high_top, stop_param,
         return False
     return entry_long_tops_signal
 
+def long_tops_2_signal_generator(period):
+    def entry_long_tops_2_signal(ticker):
+        """low top - HH - HL pattern
+        one candle after the HL top candle (between HH high and HL low)
+        one tick after this last candle (between HH high and HL low)"""
+        ticks = ticker.ticks
+        candles = ticks.candles(period)
+        tops = candles.tops()
+        if len(tops) >= 2: # pre-condition
+            if tops[-3].is_low and tops[-2].is_HH and tops[-1].is_HL and \
+               tops[-1].no_tops == 1: # condition 1
+                if candles[-1].low > tops[-1].candle.low and \
+                   candles[-1].high < tops[-2].candle.high:
+                    ticks = candles.current_ticks
+                    if len(ticks) == 1:
+                        tick_value = ticks[-1][1] 
+                        if tick_value > tops[-1].candle.low and \
+                           tick_value < tops[-2].candle.high: # condition 3
+                            target = tick_value
+                            stop = tops[-1].candle.low
+                            limit = tops[-2].candle.high
+                            if (limit - target) < (target - stop):
+                                limit = target + (target - stop)
+                            return target, stop, limit
+        return False
+    return entry_long_tops_2_signal
+
 # mother of all short tops signals
 def short_tops_signal_generator(period, high_top, low_top, stop_param, 
                                 limit_param):
@@ -94,6 +121,33 @@ def short_tops_signal_generator(period, high_top, low_top, stop_param,
                             return target, stop, limit
         return False
     return entry_short_tops_signal
+
+def short_tops_2_signal_generator(period):
+    def entry_short_tops_2_signal(ticker):
+        """high top - LL - LH pattern
+        one candle after the LH top candle (between LL low and LH high)
+        one tick after this last candle (between LL low and LH high)"""
+        ticks = ticker.ticks
+        candles = ticks.candles(period)
+        tops = candles.tops()
+        if len(tops) >= 2: # pre-condition
+            if tops[-3].is_high and tops[-2].is_LL and tops[-1].is_LH and \
+               tops[-1].no_tops == 1: # condition 1
+                if candles[-1].high < tops[-1].candle.high and \
+                   candles[-1].low > tops[-2].candle.low:
+                    ticks = candles.current_ticks
+                    if len(ticks) == 1:
+                        tick_value = ticks[-1][1] 
+                        if tick_value < tops[-1].candle.high and \
+                           tick_value > tops[-2].candle.low: # condition 3
+                            target = tick_value
+                            stop = tops[-1].candle.high
+                            limit = tops[-2].candle.low
+                            if (target - limit) < (stop - target):
+                                limit = target - (stop - target)
+                            return target, stop, limit
+        return False
+    return entry_short_tops_2_signal
 
 # random signals for testing the API
 def entry_long_random(ticker):

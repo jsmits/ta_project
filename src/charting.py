@@ -121,8 +121,7 @@ def main(lcs, scs):
             if start >= len(scs): break
             if end > len(scs): end = len(scs)
             count += 1
-         
-
+            
 if __name__ == '__main__':
     
     from ticker import Ticker
