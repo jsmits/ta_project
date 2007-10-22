@@ -98,7 +98,8 @@ def short_tops_signal_generator(period, high_top, low_top, stop_param,
         candles = ticks.candles(period)
         tops = candles.tops()
         if len(tops) >= 2: # pre-condition
-            if tops[-2].is_HH and tops[-1].is_HL: # condition 1
+            if getattr(tops[-2], "is_%s" % high_top) and \
+               getattr(tops[-1], "is_%s" % low_top): # condition 1
                 # check if the previous candle is a potential LH
                 prev_candle = candles[-1]
                 if prev_candle.high < tops[-2].candle.high and \
@@ -185,16 +186,25 @@ def tops_signal_params_generator(periods=[15, 10, 5, 4, 3, 2],
             params.append((stop_param, limit_param))
             
     args = []
+    
+    #for period in periods:
+    #    for low_top, high_top in tops:
+    #        for stop_param, limit_param in params:
+    #            args.append(("long_tops", period, low_top, high_top, stop_param, 
+    #                         limit_param))
+    #            args.append(("short_tops", period, high_top, low_top, 
+    #                         stop_param, limit_param))
+                
     for period in periods:
-        for low_top, high_top in tops:
-            for stop_param, limit_param in params:
-                args.append(("long_tops", period, low_top, high_top, stop_param, 
-                             limit_param))
-                args.append(("short_tops", period, high_top, low_top, 
-                             stop_param, limit_param))
+        for stop_param, limit_param in params:
+            args.append(("long_tops", period, 'low', 'HH', stop_param, 
+                         limit_param))
+            args.append(("short_tops", period, 'high', 'LL', stop_param, 
+                         limit_param))
     return args
 
-def random_strategies_generator(args=None, min=6, max=12, number=10000):
+def random_strategies_generator(args=None, min=6, max=12, number=10000, 
+                                exclude=[]):
     strategies = []
     tries = 0
     args = args or tops_signal_params_generator()
@@ -207,7 +217,7 @@ def random_strategies_generator(args=None, min=6, max=12, number=10000):
                 if s[:4] not in [strat[:4] for strat in strategy]:
                     strategy.append(s)
                     break
-        if strategy not in strategies:
+        if strategy not in strategies and strategy not in exclude:
             strategies.append(strategy)
         tries += 1
         if tries > 1000000:

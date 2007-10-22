@@ -1,7 +1,7 @@
 from datetime import datetime
 import time
 from ticker import Ticker
-from tickdata import get_ticks
+from tickdata import get_ticks_2
 from signals import strategy_builder
 
 class SimulationRunner(object):
@@ -85,8 +85,7 @@ def create_ticker(ticker_details):
 
 def create_ticks(ticker_details, day):
     symbol = ticker_details['symbol']
-    date = datetime(*day)
-    ticks = get_ticks(symbol, date)
+    ticks = get_ticks_2(symbol, day)
     return ticks
 
 def create_strategy(args):
@@ -103,8 +102,5 @@ def create_worker(task):
 def process_func(queue, result):
     for task in iter(queue.get, 'STOP'):
         worker = create_worker(task)
-        t1 = time.time()
         report = worker.run()
-        t2 = time.time()
-        print "task %s completed in %s seconds" % (task['task_id'], str(t2 - t1))
         result.put({task['task_id']: report})

@@ -6,8 +6,8 @@ from signals import random_strategies_generator
 from tickdata import get_random_week_triplet, random_day_generator
 
 ticker_map = {
-    "ES": {'increment': 0.25, 'commission': 0.1, 'start': (2007, 1, 1),
-           'end': (2007, 3, 1), 'hours': ((8,30), (14,45))},
+    "ES": {'increment': 0.25, 'commission': 0.1, 'start': (2006, 1, 1),
+           'end': (2007, 1, 1), 'hours': ((8,30), (14,45))},
 }
 
 if __name__ == '__main__':
@@ -59,8 +59,9 @@ if __name__ == '__main__':
         p.start()
         processes.append(p)
     
-    wanted = 10
-    criterium = nr_days * ticker_details['increment'] * 3 # 'arbitrary' criterium
+    wanted = 50
+    # 'arbitrary' criterium: 0.5% per week for ES
+    criterium = nr_days * ticker_details['increment'] * 2 
     got = set()
     
     for i in range(len(tasks)):
@@ -81,11 +82,11 @@ if __name__ == '__main__':
             break
     print "found %s strategies in step 1" % len(got)
     print "step 1 finished at %s" % str(datetime.now())
-            
-    for process in processes:
-        process.stop()
+    
     queue = None
     result = None
+    for process in processes:
+        process.stop()
         
     # step 2, find strategies that work in the previous week    
     days = prev_w
@@ -120,7 +121,8 @@ if __name__ == '__main__':
         p.start()
         processes.append(p)
     
-    criterium = nr_days * ticker_details['increment'] * 3 # 'arbitrary' criterium
+    # 'arbitrary' criterium: 0.5% per week for ES
+    criterium = nr_days * ticker_details['increment'] * 2
     pgot = set()
     
     for i in range(len(ptasks)):
@@ -139,10 +141,11 @@ if __name__ == '__main__':
                     print "strategy %s fullfills criterium" % strategy_id
     print "%s strategies were also eligible in step 2" % len(pgot)
     print "step 2 finished at %s" % str(datetime.now())
-            
+      
+    queue = None
+    result = None      
     for process in processes:
         process.stop()
-    queue = None
-    result = None
+
     
     

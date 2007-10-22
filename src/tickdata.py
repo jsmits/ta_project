@@ -2,6 +2,9 @@ from datetime import datetime, timedelta
 from calendar import Calendar
 import time
 import random
+import os
+
+cache = {}
 
 def process_fields(fields):    
     month, day, year = fields[0].split("/")
@@ -99,6 +102,7 @@ def get_unavailable_dates(symbol):
                datetime(2004, 6, 11, 0, 0), 
                datetime(2004, 12, 24, 0, 0), 
                datetime(2005, 3, 25, 0, 0),
+               datetime(2005, 7, 4, 0, 0), # data missing between 10:30 and 17:00
                datetime(2006, 1, 2, 0, 0), # found manually, starts at 17:00:00
                datetime(2006, 4, 14, 0, 0), 
                datetime(2006, 12, 25, 0, 0), 
@@ -267,6 +271,28 @@ def get_ticks(symbol, day):
     ticks_loader = globals().get("%s_ticks" % symbol)
     ticks = ticks_loader(day)
     return ticks
+
+def get_ticks_2(symbol, day_tuple):
+    ticks_path = "/Volumes/MaxiHD/data/ticks"
+    year, month, day = day_tuple
+    date = datetime(*day_tuple)
+    file_name = "%s.txt" % date.strftime("%Y%m%d")
+    full_file_name = os.path.join(ticks_path, symbol, file_name)
+    ticks = cache.get(full_file_name) or []
+    if ticks: return ticks
+    try:
+        f = open(full_file_name, 'r')
+        for line in f.readlines():
+            ts, vs = line.strip("\n").strip("\r").split(",")
+            hour, minute, second = int(ts[:2]), int(ts[2:4]), int(ts[4:])
+            date = datetime(year, month, day, hour, minute, second)
+            timestamp = time.mktime(date.timetuple())
+            ticks.append({'timestamp': timestamp, 'value': float(vs)})
+        f.close()
+        cache.update({full_file_name: ticks})
+        return ticks
+    except IOError, info:
+        print "error getting ticks for symbol %s (day: %r) -> %s" % (symbol, day_tuple, info)
 
 def random_day_generator(symbol, start, end, number):
     output = []

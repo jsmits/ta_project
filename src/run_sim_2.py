@@ -103,9 +103,10 @@ if __name__ == '__main__':
             break
     print "found %s strategies in step 1" % len(got)
     print "step 1 finished at %s" % str(datetime.now())
-            
+
+    queue = None
+    result = None            
     for process in processes:
         process.stop()
-    queue = None
-    result = None
+
         
