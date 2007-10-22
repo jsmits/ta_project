@@ -102,5 +102,11 @@ def create_worker(task):
 def process_func(queue, result):
     for task in iter(queue.get, 'STOP'):
         worker = create_worker(task)
+        t1 = time.time()
         report = worker.run()
+        t2 = time.time()
+        td = t2 - t1
+        if td < 5:
+            print "ticks for day %s might be invalid -> low analysis "\
+                "time: %s secs." % (task['day'], td)
         result.put({task['task_id']: report})

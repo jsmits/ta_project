@@ -11,6 +11,10 @@ ticker_map = {
 
 if __name__ == '__main__':
     
+    import pickle
+    
+    start_time = datetime.now()
+    
     symbol = "ES"
     ticker_details = ticker_map.get(symbol)
     ticker_details.update({'symbol': symbol})
@@ -32,13 +36,13 @@ if __name__ == '__main__':
             datetime(2004, 2, 25, 0, 0), 
             datetime(2004, 2, 26, 0, 0), 
             datetime(2004, 2, 27, 0, 0),
-
+            
             datetime(2004, 3,  1, 0, 0), 
             datetime(2004, 3,  2, 0, 0), 
             datetime(2004, 3,  3, 0, 0), 
             datetime(2004, 3,  4, 0, 0), 
             datetime(2004, 3,  5, 0, 0),
-
+        
             datetime(2004, 3,  8, 0, 0), 
             datetime(2004, 3,  9, 0, 0), 
             datetime(2004, 3, 10, 0, 0), 
@@ -50,7 +54,8 @@ if __name__ == '__main__':
             datetime(2004, 3, 17, 0, 0), 
             datetime(2004, 3, 18, 0, 0), 
             datetime(2004, 3, 19, 0, 0),
-            ]
+        ]
+            
     criterium = len(days) * ticker_details['increment'] * 2 # ES specific
     
     # create Queues
@@ -111,4 +116,9 @@ if __name__ == '__main__':
         
     p1.stop(); p2.stop()
     p1.join(); p2.join()
+    
+    # store the pickled tasks in a file for later analysis
+    f = open("../simulations/%s" % start_time.strftime("%Y%m%d%H%M%S"), 'w')
+    pickle.dump(tasks, f, pickle.HIGHEST_PROTOCOL)
+    f.close()
         
