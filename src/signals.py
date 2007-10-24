@@ -226,6 +226,37 @@ def random_strategies_generator(args=None, min=6, max=12, number=10000,
             break
     return strategies
 
+def params_generator_2(min=3, max=8, number=20):
+    params = []
+    while len(params) != number:
+        p1 = random.randint(min, max)
+        p2 = random.randint(min, max)
+        if (p1, p2) not in params:
+            params.append((p1, p2))
+    return params
+
+def random_strategies_generator_2(periods=(1,2,5,10,15), strats_per_period=20):
+    strategies = []
+    for period in periods:
+        params = params_generator_2(number=strats_per_period)
+        for p1, p2 in params:
+            strategies.append(
+                (
+                     ("long_tops", period, 'low', 'HH', p1, p2),
+                     ("short_tops", period, 'high', 'LL', p1, p2)
+                )
+            )
+    return strategies
+
+def random_weeks_generator(days, number):
+    weeks = []
+    while len(weeks) != number:
+        week = random.sample(days, 5)
+        week.sort()
+        if week not in weeks:
+            weeks.append(week)
+    return weeks
+
 def create_strategy_map(strategy_args):
     map = {}
     id = 1

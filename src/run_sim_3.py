@@ -19,7 +19,7 @@ if __name__ == '__main__':
     ticker_details = ticker_map.get(symbol)
     ticker_details.update({'symbol': symbol})
     
-    batch_nr = 200
+    batch_nr = 50
     wanted_output = 20
     max_batch_runs = 5
     
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         batch_tasks = []
         batch_args = random_strategies_generator(number=batch_nr, 
                             exclude=strategies_args)
-        strategies_args.append(batch_args) 
+        strategies_args.extend(batch_args) 
     
         # create tasks for this batch
         for args in batch_args:
