@@ -226,7 +226,7 @@ def random_strategies_generator(args=None, min=6, max=12, number=10000,
             break
     return strategies
 
-def params_generator_2(min=3, max=8, number=20):
+def params_generator_2(min=2, max=8, number=20):
     params = []
     while len(params) != number:
         p1 = random.randint(min, max)

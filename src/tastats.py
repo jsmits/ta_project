@@ -99,7 +99,7 @@ class MCStats(object):
     def __init__(self, file_name):
         self.metadata = {}
         self.keys = []
-        self.valid_sort_fields = ["min_delta", "max_delta", "avg_delta"]
+        self.valid_sort_fields = ["pos", "min_delta", "max_delta", "avg_delta"]
         f = open(file_name, 'r')
         self.parse_input(pickle.load(f))
         f.close()
@@ -155,6 +155,7 @@ class MCStats(object):
                 orders_list.append(ss['orders'])
                 longs_list.append(ss['longs'])
                 shorts_list.append(ss['shorts'])
+            md['deltas'] = delta_list
             md['min_delta'] = min(delta_list)
             md['max_delta'] = max(delta_list)
             md['avg_delta'] = (sum(delta_list)*1.0)/len(delta_list)
@@ -167,6 +168,12 @@ class MCStats(object):
             md['min_shorts'] = min(shorts_list)
             md['max_shorts'] = max(shorts_list)
             md['avg_shorts'] = (sum(shorts_list)*1.0)/len(shorts_list)
+            positives = [x for x in md['deltas'] if x > 0]
+            negatives = [x for x in md['deltas'] if x <= 0]
+            md['positives'] = positives
+            md['negatives'] = negatives
+            pos_perc = round(100.0*len(positives)/len(md['deltas']), 1)
+            md['pos'] = pos_perc
             
     def sort_stats(self, field):
         if not self.is_valid_sort_field(field):
@@ -190,14 +197,16 @@ class MCStats(object):
         self.keys.sort()
         
     def print_stats(self, number=None):
-        labels= ('id', 'trials', 'min_delta', 'max_delta', 'avg_delta')
+        labels= ('id', 'trials', '+/-', 'pos.%', 'mean', 'min', 'max')
         rows = []
         for id, md in self.output_generator(number):
             rows.append((str(id),
                          str(len(md['strategies'])), 
-                         str(md['min_delta']), 
-                         str(md['max_delta']), 
-                         str(md['avg_delta'])))
+                         str("%s/%s" % (len(md['positives']), len(md['negatives']))),
+                         str(md['pos']),    
+                         str(round(md['avg_delta'], 3)),
+                         str(round(md['min_delta'], 3)), 
+                         str(round(md['max_delta'], 3)))) 
         print indent([labels] + rows, hasHeader=True, justify='right')
         
     def print_args(self, id):

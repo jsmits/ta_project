@@ -99,7 +99,9 @@ def get_unavailable_dates(symbol):
                datetime(2003, 12, 25, 0, 0), 
                datetime(2004, 1, 1, 0, 0), 
                datetime(2004, 4, 9, 0, 0), 
+               datetime(2004, 5, 31, 0, 0), # data missing between 10:30 and 17:00
                datetime(2004, 6, 11, 0, 0), 
+               datetime(2004, 7, 5, 0, 0), # data missing between 10:30 and 17:00
                datetime(2004, 12, 24, 0, 0), 
                datetime(2005, 3, 25, 0, 0),
                datetime(2005, 7, 4, 0, 0), # data missing between 10:30 and 17:00
